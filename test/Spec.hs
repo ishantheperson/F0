@@ -47,10 +47,24 @@ symbolizerTests = describe "Symbol conversion tests" $ do
   it "reports an error for an unbound variable" $
     symbolize (forceDecls "fun foo x = y") `shouldBe` Left [(Nothing, UnboundVariable "y")]
 
-  it "properly distinguishes shadowed bindings" $ 
+  it "properly distinguishes shadowed bindings across decls" $ 
     symbolize (forceDecls "val x = 3\nval x = x") `shouldBe` (Right [
       F0Value (Symbol (0, "x")) Nothing (F0IntLiteral 3),
       F0Value (Symbol (1, "x")) Nothing (F0Identifier (Symbol (0, "x")))
+    ])
+
+  it "allows recursive use of a function" $ 
+    symbolize (forceDecls "fun foo x = foo x") `shouldBe` (Right [
+      F0Fun (Symbol (0, "foo")) [(Symbol (1, "x"), Nothing)] Nothing 
+        (F0App (F0Identifier (Symbol (0, "foo"))) (F0Identifier (Symbol (1, "x"))))
+    ])
+
+  it "properly distinguishes shadowed bindings in an expression" $ 
+    symbolize (forceDecls "fun foo x = fn x => foo x") `shouldBe` (Right [
+      F0Fun (Symbol (0, "foo")) [(Symbol (1, "x"), Nothing)] Nothing 
+        (F0Lambda (Symbol (2, "x")) Nothing (
+            F0App (F0Identifier (Symbol (0, "foo"))) (F0Identifier (Symbol (2, "x")))
+        ))
     ])
 
 main :: IO ()
