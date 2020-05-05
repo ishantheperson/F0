@@ -10,17 +10,19 @@ import Text.Megaparsec
 
 import Data.Either (isLeft, fromRight)
 import qualified Data.Map.Strict as Map 
+import qualified Data.Set as Set 
 
 tryParse p s = removePositionInfo <$> runParser p "" s
 
 parseExp = tryParse f0Expression
+parseType = runParser f0Type ""
 parseDecl = tryParse f0Decl 
 
 -- | Used when you know a string is going to parse into a list of decls 
 forceDecls :: String -> [F0Declaration String Maybe]
 forceDecls s = map removePositionInfo $ fromRight undefined (runParser f0Decls "" s)
 
-parseExpTests, parseDeclTests :: SpecWith ()
+parseExpTests, parseTypeTests, parseDeclTests :: SpecWith ()
 parseExpTests = describe "Expression parsing" $ do 
   it "parses basic identifier" $ 
     parseExp "hello" `shouldBe` Right (F0Identifier "hello")
@@ -29,12 +31,22 @@ parseExpTests = describe "Expression parsing" $ do
     parseExp "2 + 3 * 4" `shouldBe` Right (F0OpExp Plus [F0IntLiteral 2, 
                                                          F0OpExp Times [F0IntLiteral 3, F0IntLiteral 4]])
 
-parseDeclTests = describe "Decl parsing" $ do 
+parseTypeTests = describe "Type parsing" $ do 
+  it "parses function arrows with right associativity" $ 
+    parseType "int -> int -> int" `shouldBe` Right (F0Function (F0PrimitiveType F0IntType) (F0Function (F0PrimitiveType F0IntType) (F0PrimitiveType F0IntType)))
+
+  it "parses basic type variables" $ 
+    parseType "'a" `shouldBe` Right (F0TypeVariable "a")
+
+  it "parses type variables in functions" $ 
+    parseType "'a -> 'b" `shouldBe` Right (F0Function (F0TypeVariable "a") (F0TypeVariable "b"))
+
+parseDeclTests = describe "Declaration parsing" $ do 
   it "parses val binding to int literal without type annotation" $
     parseDecl "val x = 3" `shouldBe` Right (F0Value "x" Nothing (F0IntLiteral 3))
 
   it "parses val binding to int literal with type annotation" $ 
-    parseDecl "val x : int = 3" `shouldBe` Right (F0Value "x" (Just F0Int) (F0IntLiteral 3))
+    parseDecl "val x : int = 3" `shouldBe` Right (F0Value "x" (Just (F0PrimitiveType F0IntType)) (F0IntLiteral 3))
 
   it "does not parse fun decl without arguments" $ 
     parseDecl "fun foo = 3" `shouldSatisfy` isLeft
@@ -43,9 +55,22 @@ parseDeclTests = describe "Decl parsing" $ do
     parseDecl "fun foo x = -- Line comment\n  x + x" 
       `shouldBe` Right (F0Fun "foo" [("x", Nothing)] Nothing (F0OpExp Plus [F0Identifier "x", F0Identifier "x"]))
 
+freeVarsTests = describe "Free vars of expressions" $ do 
+  it "reports a lone identifier as free" $ 
+    freeVariables Set.empty (F0Identifier "x") == Set.fromList ["x"]
+
+  it "reports a variable free when it is bound in another lambda" $ 
+    freeVariables Set.empty (F0App (F0Lambda "x" Nothing (F0Identifier "x")) (F0Identifier "x")) == Set.fromList ["x"]
+
+  it "reports free variable inside a lambda" $ 
+    freeVariables Set.empty (F0App (F0Lambda "x" Nothing (F0Identifier "y")) (F0Identifier "z")) == Set.fromList ["y", "z"]
+
 symbolizerTests = describe "Symbol conversion tests" $ do 
   it "reports an error for an unbound variable" $
     symbolize (forceDecls "fun foo x = y") `shouldBe` Left [(Nothing, UnboundVariable "y")]
+
+  it "reports an error for an unbound variable which is bound in another expression" $ 
+    symbolize (forceDecls "val f = (fn x => x) x") `shouldBe` Left [(Nothing, UnboundVariable "x")]
 
   it "properly distinguishes shadowed bindings across decls" $ 
     symbolize (forceDecls "val x = 3\nval x = x") `shouldBe` (Right [
@@ -71,7 +96,9 @@ main :: IO ()
 main = hspec $ do 
   describe "Parser" $ do 
     parseExpTests
+    parseTypeTests
     parseDeclTests 
 
   describe "Elaboration" $ do 
+    freeVarsTests
     symbolizerTests

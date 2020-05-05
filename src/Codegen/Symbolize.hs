@@ -93,6 +93,7 @@ symbolizeExpr symbolMap position = \case
   F0OpExp op exps -> F0OpExp op <$> mapM (symbolizeExpr symbolMap position) exps
   F0IntLiteral i -> return $ F0IntLiteral i 
   F0StringLiteral s -> return $ F0StringLiteral s
+  F0TypeAssertion e t -> F0TypeAssertion <$> symbolizeExpr symbolMap position e <*> pure t
   F0Identifier name -> 
     case Map.lookup name symbolMap of 
       Just symbol -> return $ F0Identifier symbol 

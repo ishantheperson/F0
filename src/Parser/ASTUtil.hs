@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 module Parser.ASTUtil where 
 
 import Parser.AST 
@@ -11,8 +12,15 @@ import qualified Data.Map.Strict as Map
 -- | Takes an expression, a map from 
 -- identifiers to their types (the context at this point)
 -- and returns the free variables of an expression and their types
-freeVariables :: F0Expression s t -> Map s F0Type -> Map s F0Type
-freeVariables = undefined 
+freeVariables :: Ord s => Set s -> F0Expression s f -> Set s 
+freeVariables bound = \case
+  F0Lambda name t e -> freeVariables (Set.insert name bound) e 
+  F0App e1 e2 -> freeVariables bound e1 `Set.union` freeVariables bound e2 
+  F0Identifier x -> Set.singleton x 
+  F0IntLiteral _ -> Set.empty 
+  F0StringLiteral _ -> Set.empty 
+  F0OpExp _ es -> Set.unions (freeVariables bound <$> es)
+  F0ExpPos _ e _ -> freeVariables bound e 
 
 class RemovablePosition a where  
   removePositionInfo :: a -> a 

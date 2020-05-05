@@ -65,11 +65,15 @@ f0Expression = makeExprParser (term >>= postfix) operators
 f0Type :: Parser F0Type
 f0Type = makeExprParser term operators <?> "type"
   where term =  
-              F0Int <$ reserved "int"
-          <|> F0String <$ reserved "string" 
+              F0PrimitiveType F0IntType <$ reserved "int"
+          <|> F0PrimitiveType F0StringType <$ reserved "string" 
+          <|> F0PrimitiveType F0BoolType <$ reserved "bool"
+          <|> F0TypeVariable <$> typeVariable 
+          <|> F0TypeIdent <$> identifier 
           <|> parens f0Type 
         
         operators = [[InfixR (F0Function <$ symbol "->") ]]
+        typeVariable = char '\'' *> identifier <?> "type variable"
 
 -- | Parses a name and maybe a type assertion with it
 name :: Parser (String, Maybe F0Type)
