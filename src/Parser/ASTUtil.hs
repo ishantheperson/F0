@@ -22,6 +22,19 @@ freeVariables bound = \case
   F0OpExp _ es -> Set.unions (freeVariables bound <$> es)
   F0ExpPos _ e _ -> freeVariables bound e 
 
+printType :: F0Type -> String 
+printType = \case 
+  F0PrimitiveType p -> printPrimitiveType p 
+  F0TypeIdent s -> s 
+  F0TypeVariable a -> "'" ++ a 
+  F0Function a b -> printType a ++ " -> (" ++ printType b ++ ")" 
+
+printPrimitiveType :: F0PrimitiveType -> String 
+printPrimitiveType = \case 
+  F0IntType -> "int"
+  F0StringType -> "string"
+  F0BoolType -> "bool"
+
 class RemovablePosition a where  
   removePositionInfo :: a -> a 
 

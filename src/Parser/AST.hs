@@ -56,3 +56,4 @@ data F0PrimitiveType =
   | F0StringType 
   | F0BoolType
   deriving (Show, Eq)
+  
