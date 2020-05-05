@@ -1,0 +1,54 @@
+name:                f0
+version:             0.1.0.0
+github:              "ishantheperson/f0"
+license:             BSD3
+author:              "Ishan"
+maintainer:          "example@example.com"
+copyright:           "2020 Ishan"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/ishantheperson/f0#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- mtl 
+- containers
+- megaparsec
+- parser-combinators
+- pretty-show
+- hspec
+
+library:
+  source-dirs: src
+
+executables:
+  f0-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - f0
+
+tests:
+  f0-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - f0

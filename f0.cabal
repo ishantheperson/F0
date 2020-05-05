@@ -1,0 +1,85 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.33.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: c7e645629b3824b45a539baef0724c230eb2803ff49bb3fd299c109f330313b1
+
+name:           f0
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/ishantheperson/f0#readme>
+homepage:       https://github.com/ishantheperson/f0#readme
+bug-reports:    https://github.com/ishantheperson/f0/issues
+author:         Ishan
+maintainer:     example@example.com
+copyright:      2020 Ishan
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/ishantheperson/f0
+
+library
+  exposed-modules:
+      Codegen.Closure
+      Codegen.Symbolize
+      Lib
+      Parser.AST
+      Parser.ASTUtil
+      Parser.Internal
+  other-modules:
+      Paths_f0
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , hspec
+    , megaparsec
+    , mtl
+    , parser-combinators
+    , pretty-show
+  default-language: Haskell2010
+
+executable f0-exe
+  main-is: Main.hs
+  other-modules:
+      Paths_f0
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , f0
+    , hspec
+    , megaparsec
+    , mtl
+    , parser-combinators
+    , pretty-show
+  default-language: Haskell2010
+
+test-suite f0-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  other-modules:
+      Paths_f0
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , containers
+    , f0
+    , hspec
+    , megaparsec
+    , mtl
+    , parser-combinators
+    , pretty-show
+  default-language: Haskell2010
