@@ -139,7 +139,8 @@ lookupVar (TypeEnvironment env) v =
                  return (emptySubstitution, t)
     Nothing -> error "Unexpected unbound variable (should've been found in symbolization)"
 
-infer :: Infer m => TypeEnvironment -> Maybe SourceRange -> F0Expression Symbol Maybe -> m (F0Expression Symbol Identity, (Substitution, F0Type)) 
+infer :: Infer m => TypeEnvironment -> Maybe SourceRange -> F0Expression Symbol Maybe 
+                 -> m (F0Expression Symbol Identity, (Substitution, F0Type)) 
 infer env range = \case 
   F0Identifier x -> do 
     inferred <- lookupVar env x
