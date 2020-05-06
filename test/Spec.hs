@@ -6,6 +6,8 @@ import Parser.Internal
 
 import Codegen.Symbolize
 
+import Typechecker.Infer
+
 import Text.Megaparsec
 
 import Data.Either (isLeft, fromRight)
@@ -17,6 +19,11 @@ tryParse p s = removePositionInfo <$> runParser p "" s
 parseExp = tryParse f0Expression
 parseType = runParser f0Type ""
 parseDecl = tryParse f0Decl 
+
+typecheckE :: String -> Either [TypeError] F0Type
+typecheckE s = 
+  let (F0Value _ _ e) = head $ fromRight undefined $ symbolize $ forceDecls ("val foo = " ++ s)
+  in snd <$> typecheck e 
 
 -- | Used when you know a string is going to parse into a list of decls 
 forceDecls :: String -> [F0Declaration String Maybe]
@@ -55,6 +62,7 @@ parseDeclTests = describe "Declaration parsing" $ do
     parseDecl "fun foo x = -- Line comment\n  x + x" 
       `shouldBe` Right (F0Fun "foo" [("x", Nothing)] Nothing (F0OpExp Plus [F0Identifier "x", F0Identifier "x"]))
 
+freeVarsTests :: SpecWith ()
 freeVarsTests = describe "Free vars of expressions" $ do 
   it "reports a lone identifier as free" $ 
     freeVariables Set.empty (F0Identifier "x") == Set.fromList ["x"]
@@ -65,6 +73,7 @@ freeVarsTests = describe "Free vars of expressions" $ do
   it "reports free variable inside a lambda" $ 
     freeVariables Set.empty (F0App (F0Lambda "x" Nothing (F0Identifier "y")) (F0Identifier "z")) == Set.fromList ["y", "z"]
 
+symbolizerTests :: SpecWith ()
 symbolizerTests = describe "Symbol conversion tests" $ do 
   it "reports an error for an unbound variable" $
     symbolize (forceDecls "fun foo x = y") `shouldBe` Left [(Nothing, UnboundVariable "y")]
@@ -92,6 +101,29 @@ symbolizerTests = describe "Symbol conversion tests" $ do
         ))
     ])
 
+typeInferenceTests :: SpecWith ()
+typeInferenceTests = describe "Type inference tests" $ do 
+  it "gives the correct type to the identity function" $ 
+    typecheckE "fn x => x" `shouldBe` Right (F0TypeVariable "a" `F0Function` F0TypeVariable "a")
+
+  it "rejects an infinite type" $
+    typecheckE "fn x => x x" `shouldSatisfy` isLeft 
+
+  it "respects expression type annotation restrict polymorphism" $ 
+    typecheckE "fn x => (fn y => x : int) x" `shouldBe` Right (
+      F0PrimitiveType F0IntType `F0Function` F0PrimitiveType F0IntType
+    )
+
+  it "gives the correct type to the constant function" $ 
+    typecheckE "fn x => fn y => x" `shouldBe` Right (
+      F0TypeVariable "a" `F0Function` (F0TypeVariable "b" `F0Function` F0TypeVariable "a")
+    )
+
+  it "respects type annotation on a lambda" $ 
+    typecheckE "fn x => fn y : int => x" `shouldBe` Right (
+      F0TypeVariable "a" `F0Function` (F0PrimitiveType F0IntType `F0Function` F0TypeVariable "a")
+    )
+
 main :: IO ()
 main = hspec $ do 
   describe "Parser" $ do 
@@ -102,3 +134,6 @@ main = hspec $ do
   describe "Elaboration" $ do 
     freeVarsTests
     symbolizerTests
+
+  describe "Typechecking/inference" $ do 
+    typeInferenceTests 

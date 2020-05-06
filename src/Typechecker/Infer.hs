@@ -32,7 +32,7 @@ emptyEnv = TypeEnvironment Map.empty
 extendEnv :: TypeEnvironment -> Symbol -> Scheme -> TypeEnvironment
 extendEnv (TypeEnvironment env) name t = TypeEnvironment $ Map.insert name t env 
 
-data TypeErrorData = Mismatch F0Type F0Type | InfiniteType TypeVariable F0Type deriving Show
+data TypeErrorData = Mismatch F0Type F0Type | InfiniteType TypeVariable F0Type deriving (Show, Eq)
 type TypeError = (Maybe SourceRange, TypeErrorData)
 
 type Infer m = (MonadState Int m, MonadWriter [TypeError] m)
@@ -160,12 +160,19 @@ infer env range = \case
     let t = applySubst s2 t1
     return (F0TypeAssertion e t, (s2, t))
 
-  F0Lambda x t e -> do 
+  F0Lambda x Nothing e -> do 
     tv <- F0TypeVariable <$> mkFreshVar
     env <- return $ extendEnv env x (Forall [] tv)
     (e, (s1, t1)) <- infer env range e 
 
     let t = applySubst s1 tv
+    return (F0Lambda x (Identity t) e, (s1, F0Function t t1) )
+
+  F0Lambda x (Just t) e -> do 
+    env <- return $ extendEnv env x (Forall [] t)
+    (e, (s1, t1)) <- infer env range e 
+
+    t <- return $ applySubst s1 t
     return (F0Lambda x (Identity t) e, (s1, F0Function t t1) )
 
   F0App e1 e2 -> do 
@@ -184,8 +191,8 @@ infer env range = \case
 typecheck :: F0Expression Symbol Maybe -> Either [TypeError] (F0Expression Symbol Identity, F0Type)
 typecheck e = case runWriter (evalStateT (infer emptyEnv Nothing e) 0) of 
   ((e, (s, t)), []) -> 
-    let e' = applySubst s e 
-        normalizer = normalizeSubst e' 
+    let e' = applySubst s e -- Insert type information into the expression
+        normalizer = normalizeSubst e' -- Rename all type variables in e to a, b, c, ...
     in Right (applySubst normalizer e', applySubst normalizer t)
   (_, errors) -> Left errors
 
