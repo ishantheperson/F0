@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Typechecker.Infer where 
 
 import Parser.AST 
@@ -84,6 +85,18 @@ instance TypeSubstitutable TypeEnvironment where
   applySubst s (TypeEnvironment env) = TypeEnvironment $ Map.map (applySubst s) env 
   freeTypeVariables (TypeEnvironment env) = freeTypeVariables (Map.elems env)
 
+instance TypeSubstitutable (F0Expression Symbol Identity) where 
+  applySubst s = \case 
+    F0Lambda x (Identity t) e -> F0Lambda x (Identity $ applySubst s t) (applySubst s e)
+    F0App e1 e2 -> F0App (applySubst s e1) (applySubst s e2)
+    F0OpExp op es -> F0OpExp op (applySubst s <$> es)
+    F0If e1 e2 e3 -> F0If (applySubst s e1) (applySubst s e2) (applySubst s e3)
+    F0TypeAssertion e t -> F0TypeAssertion (applySubst s e) (applySubst s t)
+    F0ExpPos start e end -> F0ExpPos start (applySubst s e) end 
+    other -> other 
+
+  freeTypeVariables _ = error "not implemented"
+
 -- | There is no way we can unify a ~ b if a appears in b
 -- e.g. a ~ a -> b
 occursCheck :: TypeSubstitutable a => TypeVariable -> a -> Bool
@@ -126,38 +139,45 @@ lookupVar (TypeEnvironment env) v =
                  return (emptySubstitution, t)
     Nothing -> error "Unexpected unbound variable (should've been found in symbolization)"
 
-infer :: Infer m => TypeEnvironment -> Maybe SourceRange -> F0Expression Symbol Maybe -> m (Substitution, F0Type) 
+infer :: Infer m => TypeEnvironment -> Maybe SourceRange -> F0Expression Symbol Maybe -> m (F0Expression Symbol Identity, (Substitution, F0Type)) 
 infer env range = \case 
-  F0Identifier x -> lookupVar env x
+  F0Identifier x -> do 
+    inferred <- lookupVar env x
+    return (F0Identifier x, inferred)
+
   F0TypeAssertion e t -> do 
     tv <- F0TypeVariable <$> mkFreshVar
-    (s1, t1) <- infer env range e 
+    (e, (s1, t1)) <- infer env range e 
     s2 <- unify range t1 t 
-    return (s2, applySubst s2 t1)
+    let t = applySubst s2 t1
+    return (F0TypeAssertion e t, (s2, t))
 
   F0Lambda x t e -> do 
     tv <- F0TypeVariable <$> mkFreshVar
     env <- return $ extendEnv env x (Forall [] tv)
-    (s1, t1) <- infer env range e 
+    (e, (s1, t1)) <- infer env range e 
     -- Insert type information for "t" here
     -- Then after the big substitution is calculated,
     -- apply that substitution here 
     traceM ("lambda t: " ++ printType (F0Function (applySubst s1 tv) t1))
-    return (s1, F0Function (applySubst s1 tv) t1) 
+    let t = applySubst s1 tv
+    return (F0Lambda x (Identity t) e, (s1, F0Function t t1) )
 
   F0App e1 e2 -> do 
     tv <- F0TypeVariable <$> mkFreshVar
-    (s1, t1) <- infer env range e1 
-    (s2, t2) <- infer (applySubst s1 env) range e2 
+    (e1, (s1, t1)) <- infer env range e1 
+    (e2, (s2, t2)) <- infer (applySubst s1 env) range e2 
     s3 <- unify range (applySubst s2 t1) (F0Function t2 tv)
-    return (s3 `composeSubstitution` s2 `composeSubstitution` s1, applySubst s3 tv)
+    return (F0App e1 e2, (s3 `composeSubstitution` s2 `composeSubstitution` s1, applySubst s3 tv))
 
-  F0IntLiteral _ -> return (emptySubstitution, F0PrimitiveType F0IntType)
-  F0ExpPos start e end -> infer env (Just (start, end)) e 
+  F0IntLiteral i -> return (F0IntLiteral i, (emptySubstitution, F0PrimitiveType F0IntType))
+  F0ExpPos start e end -> do 
+    (e, inferred) <- infer env (Just (start, end)) e 
+    return (F0ExpPos start e end, inferred)
 
-typecheck :: F0Expression Symbol Maybe -> Either [TypeError] F0Type 
+typecheck :: F0Expression Symbol Maybe -> Either [TypeError] (F0Expression Symbol Identity, F0Type)
 typecheck e = case runWriter (evalStateT (infer emptyEnv Nothing e) 0) of 
-  ((s, t), []) -> traceShow s (Right t)
+  ((e, (s, t)), []) -> Right (applySubst s e, t)
   (_, errors) -> Left errors
 
 -- normalize :: F0Type -> F0Type 
