@@ -95,7 +95,14 @@ instance TypeSubstitutable (F0Expression Symbol Identity) where
     F0ExpPos start e end -> F0ExpPos start (applySubst s e) end 
     other -> other 
 
-  freeTypeVariables _ = error "not implemented"
+  freeTypeVariables = \case 
+    F0Lambda x (Identity t) e -> freeTypeVariables t `Set.union` freeTypeVariables e
+    F0App e1 e2 -> freeTypeVariables e1 `Set.union` freeTypeVariables e2
+    F0OpExp op es -> Set.unions (freeTypeVariables <$> es)
+    F0If e1 e2 e3 -> Set.unions (freeTypeVariables <$> [e1, e2, e3])
+    F0TypeAssertion e t -> freeTypeVariables t `Set.union` freeTypeVariables e
+    F0ExpPos start e end -> freeTypeVariables e 
+    other -> Set.empty  
 
 -- | There is no way we can unify a ~ b if a appears in b
 -- e.g. a ~ a -> b
@@ -157,10 +164,7 @@ infer env range = \case
     tv <- F0TypeVariable <$> mkFreshVar
     env <- return $ extendEnv env x (Forall [] tv)
     (e, (s1, t1)) <- infer env range e 
-    -- Insert type information for "t" here
-    -- Then after the big substitution is calculated,
-    -- apply that substitution here 
-    traceM ("lambda t: " ++ printType (F0Function (applySubst s1 tv) t1))
+
     let t = applySubst s1 tv
     return (F0Lambda x (Identity t) e, (s1, F0Function t t1) )
 
@@ -176,13 +180,23 @@ infer env range = \case
     (e, inferred) <- infer env (Just (start, end)) e 
     return (F0ExpPos start e end, inferred)
 
+-- | Returns typechecking errors, or AST with type information inserted as well as the most general type
 typecheck :: F0Expression Symbol Maybe -> Either [TypeError] (F0Expression Symbol Identity, F0Type)
 typecheck e = case runWriter (evalStateT (infer emptyEnv Nothing e) 0) of 
-  ((e, (s, t)), []) -> Right (applySubst s e, t)
+  ((e, (s, t)), []) -> 
+    let e' = applySubst s e 
+        normalizer = normalizeSubst e' 
+    in Right (applySubst normalizer e', applySubst normalizer t)
   (_, errors) -> Left errors
 
--- normalize :: F0Type -> F0Type 
--- normalize t = 
---   let vars = Set.toList $ freeTypeVariables t 
---   in undefined 
---   where 
+
+normalizeSubst :: TypeSubstitutable a => a -> Substitution
+normalizeSubst t = 
+  let vars = Set.toList $ freeTypeVariables t 
+      subst = map (\(v, i) -> (v, F0TypeVariable (names !! i))) (zip vars [0..])
+  in Map.fromList subst
+  where names :: [String]
+        names = map pure ['a'..'z'] ++ do 
+          i <- [1..]
+          j <- ['a'..'z']
+          return (j : show i)
