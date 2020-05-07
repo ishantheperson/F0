@@ -23,7 +23,7 @@ import Debug.Trace
 
 -- Based off of: http://dev.stephendiehl.com/fun/006_hindley_milner.html
 
-data Scheme = Forall [TypeVariable] F0Type deriving Show 
+data Scheme = Forall [TypeVariable] F0Type deriving (Show, Eq)
 newtype TypeEnvironment = TypeEnvironment (Map Symbol Scheme) deriving Show 
 
 emptyEnv :: TypeEnvironment
@@ -31,6 +31,9 @@ emptyEnv = TypeEnvironment Map.empty
 
 extendEnv :: TypeEnvironment -> Symbol -> Scheme -> TypeEnvironment
 extendEnv (TypeEnvironment env) name t = TypeEnvironment $ Map.insert name t env 
+
+getSymbolType :: TypeEnvironment -> Symbol -> Maybe Scheme 
+getSymbolType (TypeEnvironment env) name = Map.lookup name env 
 
 printEnv :: TypeEnvironment -> String 
 printEnv (TypeEnvironment e) = unlines $ flip map (Map.toList e) (\((Symbol (_, name)), (Forall _ t)) -> "val " ++ name ++ " : " ++ printType t)
@@ -119,7 +122,7 @@ lookupVar (TypeEnvironment env) v =
   case Map.lookup v env of 
     Just s -> do t <- instantiate s 
                  return (emptySubstitution, t)
-    Nothing -> error "Unexpected unbound variable (should've been found in symbolization)"
+    Nothing -> error $ "Unexpected unbound variable (should've been found in symbolization): " ++ show v 
 
 infer :: Infer m => TypeEnvironment -> Maybe SourceRange -> F0Expression Symbol Maybe 
                  -> m (F0Expression Symbol Identity, (Substitution, F0Type)) 
@@ -161,6 +164,45 @@ infer env range = \case
     (e, inferred) <- infer env (Just (start, end)) e 
     return (F0ExpPos start e end, inferred)
 
+inferDecl :: Infer m => TypeEnvironment -> F0Declaration Symbol Maybe 
+                     -> m (F0Declaration Symbol Identity, Scheme)
+inferDecl env = \case                      
+  F0Value name _ e -> do 
+    (e, (s, t)) <- infer env Nothing e 
+    t <- return $ subst s t 
+    let scheme = generalize env t 
+    return (F0Value name (Identity t) e, scheme)
+
+  F0Fun name args _ e -> do 
+    let lambdafied = lambdafy e args 
+    recursiveT <- F0TypeVariable <$> freshName 
+    env <- return $ extendEnv env name (Forall [] recursiveT)
+    -- Bind name to "recursiveT"
+    (e, (s, t)) <- infer env Nothing lambdafied 
+    t <- return $ subst s t 
+    recursiveT <- return $ subst s t 
+
+    ftS <- unify Nothing t recursiveT 
+    t <- return $ subst ftS t 
+
+    let scheme = generalize env t 
+    return (F0Value name (Identity t) e, scheme)
+
+  where lambdafy :: F0Expression Symbol Maybe -> [(Symbol, Maybe F0Type)] -> F0Expression Symbol Maybe
+        lambdafy base = \case 
+          [] -> base 
+          (argName, t) : args -> F0Lambda argName t (lambdafy base args)
+
+inferDecls :: Infer m => TypeEnvironment -> [F0Declaration Symbol Maybe] 
+                      -> m ([F0Declaration Symbol Identity], TypeEnvironment)
+inferDecls env = \case 
+  [] -> return ([], env)
+  d : ds -> do 
+    (typeInfoInserted, scheme) <- inferDecl env d
+    env <- return $ extendEnv env (declName d) scheme 
+    (symbols, env) <- inferDecls env ds 
+    return (typeInfoInserted:symbols, env)
+
 -- | Returns typechecking errors, or AST with type information inserted as well as the most general type
 typecheck :: TypeEnvironment -> F0Expression Symbol Maybe -> Either [TypeError] (F0Expression Symbol Identity, Scheme)
 typecheck env e = case runWriter (evalStateT (infer env Nothing e) 0) of 
@@ -170,9 +212,9 @@ typecheck env e = case runWriter (evalStateT (infer env Nothing e) 0) of
     in Right (subst normalizer e', generalize emptyEnv $ subst (normalizer `composeSubst` s) t)
   (_, errors) -> Left errors
 
-typecheckDecls :: TypeEnvironment -> [F0Declaration Symbol Maybe] -> Either [TypeError] (TypeEnvironment, [F0Declaration Symbol Identity])
+typecheckDecls :: TypeEnvironment -> [F0Declaration Symbol Maybe] -> Either [TypeError] ([F0Declaration Symbol Identity], TypeEnvironment)
 typecheckDecls env decls = 
-  case runWriter (typecheckDecls' env decls) of 
+  case runWriter (evalStateT (inferDecls env decls) 0) of 
     (results, []) -> Right results 
     (_, errors) -> Left errors 
 

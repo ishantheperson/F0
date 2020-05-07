@@ -9,6 +9,12 @@ import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map 
 
+declName :: F0Declaration symbol typeInfo -> symbol 
+declName = \case 
+  F0Value n _ _ -> n 
+  F0Fun n _ _ _ -> n 
+  F0DeclPos _ d _ -> declName d 
+
 -- | Takes an expression, a map from 
 -- identifiers to their types (the context at this point)
 -- and returns the free variables of an expression and their types

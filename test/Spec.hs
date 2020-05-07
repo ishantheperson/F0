@@ -10,6 +10,7 @@ import Typechecker.Infer
 
 import Text.Megaparsec
 
+import Data.Maybe (fromJust)
 import Data.Either (isLeft, fromRight)
 import qualified Data.Map.Strict as Map 
 import qualified Data.Set as Set 
@@ -22,12 +23,22 @@ parseDecl = tryParse f0Decl
 
 typecheckE :: String -> Either [TypeError] F0Type
 typecheckE s = 
-  let (F0Value _ _ e) = head $ fromRight (error "typecheckE: Symbolization failed") $ symbolize $ forceDecls ("val foo = " ++ s)
+  let (F0Value _ _ e) = head $ forceSymbols ("val foo = " ++ s)
   in fmap (\(_, Forall _ t) -> t) (typecheck emptyEnv e)
+
+typecheckD :: String -> Symbol -> Either [TypeError] Scheme
+typecheckD s n = 
+  let syms = forceSymbols s 
+  in case snd <$> typecheckDecls emptyEnv syms of 
+       Left e -> Left e 
+       Right env -> Right $ fromJust $ getSymbolType env n 
 
 -- | Used when you know a string is going to parse into a list of decls 
 forceDecls :: String -> [F0Declaration String Maybe]
 forceDecls s = map removePositionInfo $ fromRight (error "forceDecls: Parsing failed") (runParser f0Decls "" s)
+
+forceSymbols :: String -> [F0Declaration Symbol Maybe]
+forceSymbols s = fromRight (error "typecheckE: Symbolization failed") $ symbolize $ forceDecls s 
 
 parseExpTests, parseTypeTests, parseDeclTests :: SpecWith ()
 parseExpTests = describe "Expression parsing" $ do 
@@ -132,6 +143,9 @@ typeInferenceTests = describe "Type inference tests" $ do
     typecheckE "fn x => (fn y => y x) (fn x => x)" `shouldBe` Right (
       F0TypeVariable "a" `F0Function` F0TypeVariable "a"
     )
+
+  it "checks the looping function" $ 
+    typecheckD "fun f x = f x" (Symbol (0, "f")) `shouldBe` Right (Forall ["_x1", "_x2"] $ F0TypeVariable "_x1" `F0Function` F0TypeVariable "_x2  ")
 
 main :: IO ()
 main = hspec $ do 

@@ -52,7 +52,7 @@ main = do
                     when (printAst options) (pPrint ast)
                     return ast 
 
-  (typeEnv, typeAST) <- case typecheckDecls emptyEnv symbolized of 
+  (typeAST, typeEnv) <- case typecheckDecls emptyEnv symbolized of 
                           Left errors -> do 
                             mapM_ print errors 
                             fail "Typechecking failed"
