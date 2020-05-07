@@ -77,7 +77,7 @@ symbolizeDecl symbolMap position = \case
     -- if they have the same name 
     let (argNames, argTypes) = unzip args 
     argSymbols <- forM argNames mkSymbol
-    symbolMap <- return $ Map.fromList (zip argNames argSymbols) `Map.union` Map.insert name nameSymbol symbolMap
+    symbolMap <- return $ Map.fromList (zip argNames argSymbols) <> Map.insert name nameSymbol symbolMap
     decl <- F0Fun nameSymbol (zip argSymbols argTypes) t <$> symbolizeExpr symbolMap position body
     return (decl, name, nameSymbol)
 

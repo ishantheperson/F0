@@ -23,7 +23,7 @@ freeVariables bound = \case
   F0ExpPos _ e _ -> freeVariables bound e 
 
 class TypeSubstitutable a where 
-  applySubst :: Substitution -> a -> a 
+  subst :: Substitution -> a -> a 
   freeTypeVariables :: a -> Set TypeVariable
 
 type Substitution = Map TypeVariable F0Type 
@@ -31,18 +31,18 @@ emptySubstitution :: Substitution
 emptySubstitution = Map.empty 
 
 -- Apply substitution s1 to s2, and also apply s1 
-composeSubstitution :: Substitution -> Substitution -> Substitution
-composeSubstitution s1 s2 = Map.map (applySubst s1) s2 `Map.union` s1 
+composeSubst :: Substitution -> Substitution -> Substitution
+composeSubst s1 s2 = Map.map (subst s1) s2 <> s1 
 
 instance TypeSubstitutable F0Type where 
-  applySubst s = \case 
+  subst s = \case 
     t@(F0TypeVariable a) -> Map.findWithDefault t a s 
-    F0Function a b -> applySubst s a `F0Function` applySubst s b 
+    F0Function a b -> subst s a `F0Function` subst s b 
     t -> t 
 
   freeTypeVariables = \case 
     F0TypeVariable a -> Set.singleton a 
-    F0Function a b -> freeTypeVariables a `Set.union` freeTypeVariables b 
+    F0Function a b -> freeTypeVariables a <> freeTypeVariables b 
     _ -> Set.empty     
 
 normalizeSubst :: TypeSubstitutable a => a -> Substitution
@@ -57,7 +57,7 @@ normalizeSubst t =
           return (j : show i)
 
 printType :: F0Type -> String 
-printType t = printType' $ applySubst (normalizeSubst t) t  
+printType t = printType' $ subst (normalizeSubst t) t  
   where printType' :: F0Type -> String 
         printType' = \case 
           F0PrimitiveType p -> printPrimitiveType p 

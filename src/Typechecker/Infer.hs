@@ -40,49 +40,42 @@ type TypeError = (Maybe SourceRange, TypeErrorData)
 
 type Infer m = (MonadState Int m, MonadWriter [TypeError] m)
 
-mkFreshVar :: Infer m => m TypeVariable
-mkFreshVar = do 
+freshName :: Infer m => m TypeVariable
+freshName = do 
   i <- get 
   modify succ 
   return ("_x" ++ show i)
 
-runInfer = undefined 
-{-
-  case runWriter $ evalStateT (go Map.empty decls) 0 of 
-    (symbolizedDecls, []) -> Right symbolizedDecls
-    (_, errors) -> Left errors 
--}
-
 instance TypeSubstitutable Scheme where 
-  applySubst s (Forall vars t) = Forall vars $ applySubst s' t 
+  subst s (Forall vars t) = Forall vars $ subst s' t 
     where s' = foldr Map.delete s vars 
 
   freeTypeVariables (Forall vars t) = freeTypeVariables t `Set.difference` Set.fromList vars 
 
 instance TypeSubstitutable a => TypeSubstitutable [a] where 
-  applySubst = fmap . applySubst
+  subst = fmap . subst
   freeTypeVariables = foldr (Set.union . freeTypeVariables) Set.empty 
 
 instance TypeSubstitutable TypeEnvironment where 
-  applySubst s (TypeEnvironment env) = TypeEnvironment $ Map.map (applySubst s) env 
+  subst s (TypeEnvironment env) = TypeEnvironment $ Map.map (subst s) env 
   freeTypeVariables (TypeEnvironment env) = freeTypeVariables (Map.elems env)
 
 instance TypeSubstitutable (F0Expression Symbol Identity) where 
-  applySubst s = \case 
-    F0Lambda x (Identity t) e -> F0Lambda x (Identity $ applySubst s t) (applySubst s e)
-    F0App e1 e2 -> F0App (applySubst s e1) (applySubst s e2)
-    F0OpExp op es -> F0OpExp op (applySubst s <$> es)
-    F0If e1 e2 e3 -> F0If (applySubst s e1) (applySubst s e2) (applySubst s e3)
-    F0TypeAssertion e t -> F0TypeAssertion (applySubst s e) (applySubst s t)
-    F0ExpPos start e end -> F0ExpPos start (applySubst s e) end 
+  subst s = \case 
+    F0Lambda x (Identity t) e -> F0Lambda x (Identity $ subst s t) (subst s e)
+    F0App e1 e2 -> F0App (subst s e1) (subst s e2)
+    F0OpExp op es -> F0OpExp op (subst s <$> es)
+    F0If e1 e2 e3 -> F0If (subst s e1) (subst s e2) (subst s e3)
+    F0TypeAssertion e t -> F0TypeAssertion (subst s e) (subst s t)
+    F0ExpPos start e end -> F0ExpPos start (subst s e) end 
     other -> other 
 
   freeTypeVariables = \case 
-    F0Lambda x (Identity t) e -> freeTypeVariables t `Set.union` freeTypeVariables e
-    F0App e1 e2 -> freeTypeVariables e1 `Set.union` freeTypeVariables e2
+    F0Lambda x (Identity t) e -> freeTypeVariables t <> freeTypeVariables e
+    F0App e1 e2 -> freeTypeVariables e1 <> freeTypeVariables e2
     F0OpExp op es -> Set.unions (freeTypeVariables <$> es)
     F0If e1 e2 e3 -> Set.unions (freeTypeVariables <$> [e1, e2, e3])
-    F0TypeAssertion e t -> freeTypeVariables t `Set.union` freeTypeVariables e
+    F0TypeAssertion e t -> freeTypeVariables t <> freeTypeVariables e
     F0ExpPos start e end -> freeTypeVariables e 
     other -> Set.empty  
 
@@ -97,13 +90,13 @@ unify range t (F0TypeVariable a) = bind range a t
 unify range (F0PrimitiveType a) (F0PrimitiveType b) | a == b = return emptySubstitution 
 unify range (a `F0Function` b) (c `F0Function` d) = do 
   s1 <- unify range a c 
-  s2 <- unify range (applySubst s1 b) (applySubst s1 d)
-  return $ s1 `composeSubstitution` s2 
+  s2 <- unify range (subst s1 b) (subst s1 d)
+  return $ s1 `composeSubst` s2 
 unify range t1 t2 = do 
   tell [(range, Mismatch t1 t2)]
   return emptySubstitution 
 
-bind :: Infer m => Maybe SourceRange -> TypeVariable -> F0Type -> m Substitution
+-- bind :: Infer m => Maybe SourceRange -> TypeVariable -> F0Type -> m Substitution
 bind range a t | t == (F0TypeVariable a) = return emptySubstitution -- a and t are the same variable
                | occursCheck a t = do 
                     tell [(range, InfiniteType a t)]
@@ -113,9 +106,9 @@ bind range a t | t == (F0TypeVariable a) = return emptySubstitution -- a and t a
 -- Removes quantifiers 
 instantiate :: Infer m => Scheme -> m F0Type 
 instantiate (Forall vars t) = do
-  names <-  mapM (const $ F0TypeVariable <$> mkFreshVar) vars 
-  let subst = Map.fromList (zip vars names)
-  return $ applySubst subst t 
+  names <-  mapM (const $ F0TypeVariable <$> freshName) vars 
+  let freeVarSubst = Map.fromList (zip vars names)
+  return $ subst freeVarSubst t 
 
 generalize :: TypeEnvironment -> F0Type -> Scheme 
 generalize env t = Forall vars t 
@@ -138,29 +131,29 @@ infer env range = \case
   F0TypeAssertion e t -> do 
     (e, (s1, t1)) <- infer env range e 
     s2 <- unify range t1 t 
-    let t = applySubst s2 t1
+    let t = subst s2 t1
     return (F0TypeAssertion e t, (s2, t))
 
   F0Lambda x Nothing e -> do 
-    tv <- F0TypeVariable <$> mkFreshVar
+    tv <- F0TypeVariable <$> freshName
     env <- return $ extendEnv env x (Forall [] tv)
     (e, (s1, t1)) <- infer env range e 
-    let t = applySubst s1 tv
+    let t = subst s1 tv
     return (F0Lambda x (Identity t) e, (s1, F0Function t t1) )
 
   F0Lambda x (Just t) e -> do 
     env <- return $ extendEnv env x (generalize env t)
     (e, (s1, t1)) <- infer env range e 
 
-    t <- return $ applySubst s1 t
+    t <- return $ subst s1 t
     return (F0Lambda x (Identity t) e, (s1, F0Function t t1) )
 
   F0App e1 e2 -> do 
-    tv <- F0TypeVariable <$> mkFreshVar
+    tv <- F0TypeVariable <$> freshName
     (e1, (s1, t1)) <- infer env range e1 
-    (e2, (s2, t2)) <- infer (applySubst s1 env) range e2 
-    s3 <- unify range (applySubst s2 t1) (F0Function t2 tv)
-    return (F0App e1 e2, (s3 `composeSubstitution` s2 `composeSubstitution` s1, applySubst s3 tv))
+    (e2, (s2, t2)) <- infer (subst s1 env) range e2 
+    s3 <- unify range (subst s2 t1) (F0Function t2 tv)
+    return (F0App e1 e2, (s3 `composeSubst` s2 `composeSubst` s1, subst s3 tv))
 
   F0IntLiteral i -> return (F0IntLiteral i, (emptySubstitution, F0PrimitiveType F0IntType))
   F0StringLiteral s -> return (F0StringLiteral s, (emptySubstitution, F0PrimitiveType F0StringType))
@@ -172,9 +165,9 @@ infer env range = \case
 typecheck :: TypeEnvironment -> F0Expression Symbol Maybe -> Either [TypeError] (F0Expression Symbol Identity, Scheme)
 typecheck env e = case runWriter (evalStateT (infer env Nothing e) 0) of 
   ((e, (s, t)), []) -> 
-    let e' = applySubst s e -- Insert type information into the expression
+    let e' = subst s e -- Insert type information into the expression
         normalizer = normalizeSubst e' -- Rename all type variables in e to a, b, c, ...
-    in Right (applySubst normalizer e', generalize emptyEnv $ applySubst (normalizer `composeSubstitution` s) t)
+    in Right (subst normalizer e', generalize emptyEnv $ subst (normalizer `composeSubst` s) t)
   (_, errors) -> Left errors
 
 typecheckDecls :: TypeEnvironment -> [F0Declaration Symbol Maybe] -> Either [TypeError] (TypeEnvironment, [F0Declaration Symbol Identity])
@@ -198,3 +191,12 @@ typecheckDecls' env = \case
         env <- return $ extendEnv env name scheme 
         (env, decls) <- typecheckDecls' env decls 
         return (env, F0Value name (Identity t) e : decls)
+
+  F0Fun name args _ e : decls -> do 
+    -- Step 1: Turn the function into a lambda 
+    undefined 
+
+  where lambdafy :: F0Expression Symbol Maybe -> [(Symbol, Maybe F0Type)] -> F0Expression Symbol Maybe 
+        lambdafy base = \case 
+          [] -> base 
+          (name, _) : args -> undefined 
