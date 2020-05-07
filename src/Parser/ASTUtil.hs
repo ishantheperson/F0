@@ -9,6 +9,8 @@ import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map 
 
+import Text.Printf
+
 declName :: F0Declaration symbol typeInfo -> symbol 
 declName = \case 
   F0Value n _ _ -> n 
@@ -69,7 +71,8 @@ printType t = printType' $ subst (normalizeSubst t) t
           F0PrimitiveType p -> printPrimitiveType p 
           F0TypeIdent s -> s 
           F0TypeVariable a -> "'" ++ a 
-          F0Function a b -> concat ["(", printType' a, ") -> (", printType' b, ")" ]
+          F0Function a@(F0Function _ _) b -> printf "(%s) -> %s" (printType' a) (printType' b) 
+          F0Function a b -> printf "%s -> %s" (printType' a) (printType' b) 
 
 printPrimitiveType :: F0PrimitiveType -> String 
 printPrimitiveType = \case 

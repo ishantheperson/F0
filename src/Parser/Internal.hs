@@ -10,7 +10,10 @@ import Text.Megaparsec
 import Text.Megaparsec.Char
 import Text.Megaparsec.Debug 
 import qualified Text.Megaparsec.Char.Lexer as Lex
+import Control.Monad.Combinators
 import Control.Monad.Combinators.Expr
+
+import Debug.Trace 
 
 type Parser = Parsec Void String 
 -- type Parser = ParsecT Void String (Writer [ParseError String Void])
@@ -50,17 +53,21 @@ f0Expression = makeExprParser (term >>= postfix) operators
         term = 
           choice (parens f0Expression : (positioned <$> [f0Lambda, f0If, f0IntLiteral, f0StringLiteral, f0Ident]))
         postfix e = 
-              positioned (F0App e <$> f0Expression)
+              -- positioned (F0App e <$> f0Expression)
+              positioned (functionApp e)
           -- <|> positioned (F0TypeAssertion e <$> (symbol ":" >> f0Type))
           <|> return e 
+
+        functionApp e = foldl F0App e <$> some term 
+
         operators = [[binOp "*" Times],
                      [binOp "+" Plus],
                      [binOp "==" Equals]]
           where binOp opString opConstructor = 
                   InfixL (symbol opString >> return (\a b -> F0OpExp opConstructor [a, b])) 
-        positioned p =   -- Source information for expressions can clutter up the AST a lot
+        positioned p = p  -- Source information for expressions can clutter up the AST a lot
                          -- so right now I am removing it 
-          F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
+          -- F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
 
 f0Type :: Parser F0Type
 f0Type = makeExprParser term operators <?> "type"

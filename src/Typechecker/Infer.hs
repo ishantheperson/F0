@@ -19,6 +19,8 @@ import qualified Data.Map.Strict as Map
 import Control.Monad.Writer
 import Control.Monad.State.Strict
 
+import Text.Show.Pretty
+
 import Debug.Trace 
 
 -- Based off of: http://dev.stephendiehl.com/fun/006_hindley_milner.html
@@ -158,6 +160,20 @@ infer env range = \case
     s3 <- unify range (subst s2 t1) (F0Function t2 tv)
     return (F0App e1 e2, (s3 `composeSubst` s2 `composeSubst` s1, subst s3 tv))
 
+  F0OpExp op [e1, e2] -> do 
+    (e1, (s1, t1)) <- infer env range e1 
+    (e2, (s2, t2)) <- infer env range e2 
+
+    traceShowM t1 
+    traceShowM t2 
+
+    tv <- F0TypeVariable <$> freshName
+
+    s3 <- unify range (t1 `F0Function` t2 `F0Function` tv) (F0PrimitiveType F0IntType `F0Function` F0PrimitiveType F0IntType `F0Function` F0PrimitiveType F0IntType)
+    return (F0OpExp op [e1, e2], (s1 `composeSubst` s2 `composeSubst` s3, subst s3 tv))
+
+  F0OpExp _ _ -> error "infer: Currently all operators should only have two operands!"
+
   F0IntLiteral i -> return (F0IntLiteral i, (emptySubstitution, F0PrimitiveType F0IntType))
   F0StringLiteral s -> return (F0StringLiteral s, (emptySubstitution, F0PrimitiveType F0StringType))
   F0ExpPos start e end -> do 
@@ -175,6 +191,7 @@ inferDecl env = \case
 
   F0Fun name args _ e -> do 
     let lambdafied = lambdafy e args 
+
     recursiveT <- F0TypeVariable <$> freshName 
     env <- return $ extendEnv env name (Forall [] recursiveT)
     -- Bind name to "recursiveT"
@@ -218,27 +235,3 @@ typecheckDecls env decls =
     (results, []) -> Right results 
     (_, errors) -> Left errors 
 
-typecheckDecls' :: MonadWriter [TypeError] m => TypeEnvironment -> [F0Declaration Symbol Maybe] -> m (TypeEnvironment, [F0Declaration Symbol Identity])
-typecheckDecls' env = \case 
-  [] -> return (env, [])
-  F0Value name _ e : decls -> 
-    case typecheck env e of 
-      Left errors -> do 
-        tell errors 
-        -- Pretend this name can be used with any type so it doesn't produce more type errors 
-        env <- return $ extendEnv env name (Forall ["a"] (F0TypeVariable "a"))
-        typecheckDecls' env decls 
-
-      Right (e, scheme@(Forall _ t)) -> do 
-        env <- return $ extendEnv env name scheme 
-        (env, decls) <- typecheckDecls' env decls 
-        return (env, F0Value name (Identity t) e : decls)
-
-  F0Fun name args _ e : decls -> do 
-    -- Step 1: Turn the function into a lambda 
-    undefined 
-
-  where lambdafy :: F0Expression Symbol Maybe -> [(Symbol, Maybe F0Type)] -> F0Expression Symbol Maybe 
-        lambdafy base = \case 
-          [] -> base 
-          (name, _) : args -> undefined 

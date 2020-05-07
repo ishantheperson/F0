@@ -49,6 +49,9 @@ parseExpTests = describe "Expression parsing" $ do
     parseExp "2 + 3 * 4" `shouldBe` Right (F0OpExp Plus [F0IntLiteral 2, 
                                                          F0OpExp Times [F0IntLiteral 3, F0IntLiteral 4]])
 
+  it "parses function application with left associativity" $ 
+    parseExp "f a b c" `shouldBe` Right (F0App (F0App (F0App (F0Identifier "f") (F0Identifier "a")) (F0Identifier "b")) (F0Identifier "c"))
+
 parseTypeTests = describe "Type parsing" $ do 
   it "parses function arrows with right associativity" $ 
     parseType "int -> int -> int" `shouldBe` Right (F0Function (F0PrimitiveType F0IntType) (F0Function (F0PrimitiveType F0IntType) (F0PrimitiveType F0IntType)))
@@ -145,7 +148,7 @@ typeInferenceTests = describe "Type inference tests" $ do
     )
 
   it "checks the looping function" $ 
-    typecheckD "fun f x = f x" (Symbol (0, "f")) `shouldBe` Right (Forall ["_x1", "_x2"] $ F0TypeVariable "_x1" `F0Function` F0TypeVariable "_x2  ")
+    typecheckD "fun f x = f x" (Symbol (0, "f")) `shouldBe` Right (Forall ["_x1", "_x2"] $ F0TypeVariable "_x1" `F0Function` F0TypeVariable "_x2")
 
 main :: IO ()
 main = hspec $ do 
