@@ -23,7 +23,7 @@ parseDecl = tryParse f0Decl
 typecheckE :: String -> Either [TypeError] F0Type
 typecheckE s = 
   let (F0Value _ _ e) = head $ fromRight (error "typecheckE: Symbolization failed") $ symbolize $ forceDecls ("val foo = " ++ s)
-  in fmap (\(_, Forall _ t) -> t) (typecheck e)
+  in fmap (\(_, Forall _ t) -> t) (typecheck emptyEnv e)
 
 -- | Used when you know a string is going to parse into a list of decls 
 forceDecls :: String -> [F0Declaration String Maybe]

@@ -27,6 +27,7 @@ dependencies:
 - parser-combinators
 - pretty-show
 - hspec
+- optparse-applicative
 
 library:
   source-dirs: src

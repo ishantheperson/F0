@@ -32,6 +32,9 @@ emptyEnv = TypeEnvironment Map.empty
 extendEnv :: TypeEnvironment -> Symbol -> Scheme -> TypeEnvironment
 extendEnv (TypeEnvironment env) name t = TypeEnvironment $ Map.insert name t env 
 
+printEnv :: TypeEnvironment -> String 
+printEnv (TypeEnvironment e) = unlines $ flip map (Map.toList e) (\((Symbol (_, name)), (Forall _ t)) -> "val " ++ name ++ " : " ++ printType t)
+
 data TypeErrorData = Mismatch F0Type F0Type | InfiniteType TypeVariable F0Type deriving (Show, Eq)
 type TypeError = (Maybe SourceRange, TypeErrorData)
 
@@ -41,7 +44,7 @@ mkFreshVar :: Infer m => m TypeVariable
 mkFreshVar = do 
   i <- get 
   modify succ 
-  return $ ("_x" ++ show i)
+  return ("_x" ++ show i)
 
 runInfer = undefined 
 {-
@@ -91,14 +94,14 @@ occursCheck a t = a `Set.member` freeTypeVariables t
 unify :: Infer m => Maybe SourceRange -> F0Type -> F0Type -> m Substitution
 unify range (F0TypeVariable a) t = bind range a t 
 unify range t (F0TypeVariable a) = bind range a t
-unify range (F0PrimitiveType a) (F0PrimitiveType b) | a == b = return $ emptySubstitution 
+unify range (F0PrimitiveType a) (F0PrimitiveType b) | a == b = return emptySubstitution 
 unify range (a `F0Function` b) (c `F0Function` d) = do 
   s1 <- unify range a c 
   s2 <- unify range (applySubst s1 b) (applySubst s1 d)
   return $ s1 `composeSubstitution` s2 
 unify range t1 t2 = do 
   tell [(range, Mismatch t1 t2)]
-  return $ emptySubstitution 
+  return emptySubstitution 
 
 bind :: Infer m => Maybe SourceRange -> TypeVariable -> F0Type -> m Substitution
 bind range a t | t == (F0TypeVariable a) = return emptySubstitution -- a and t are the same variable
@@ -166,21 +169,32 @@ infer env range = \case
     return (F0ExpPos start e end, inferred)
 
 -- | Returns typechecking errors, or AST with type information inserted as well as the most general type
-typecheck :: F0Expression Symbol Maybe -> Either [TypeError] (F0Expression Symbol Identity, Scheme)
-typecheck e = case runWriter (evalStateT (infer emptyEnv Nothing e) 0) of 
+typecheck :: TypeEnvironment -> F0Expression Symbol Maybe -> Either [TypeError] (F0Expression Symbol Identity, Scheme)
+typecheck env e = case runWriter (evalStateT (infer env Nothing e) 0) of 
   ((e, (s, t)), []) -> 
     let e' = applySubst s e -- Insert type information into the expression
         normalizer = normalizeSubst e' -- Rename all type variables in e to a, b, c, ...
     in Right (applySubst normalizer e', generalize emptyEnv $ applySubst (normalizer `composeSubstitution` s) t)
   (_, errors) -> Left errors
 
--- normalizeSubst :: TypeSubstitutable a => a -> Substitution
--- normalizeSubst t = 
---   let vars = Set.toList $ freeTypeVariables t 
---       subst = map (\(v, i) -> (v, F0TypeVariable (names !! i))) (zip vars [0..])
---   in Map.fromList subst
---   where names :: [String]
---         names = map pure ['a'..'z'] ++ do 
---           i <- [1..]
---           j <- ['a'..'z']
---           return (j : show i)
+typecheckDecls :: TypeEnvironment -> [F0Declaration Symbol Maybe] -> Either [TypeError] (TypeEnvironment, [F0Declaration Symbol Identity])
+typecheckDecls env decls = 
+  case runWriter (typecheckDecls' env decls) of 
+    (results, []) -> Right results 
+    (_, errors) -> Left errors 
+
+typecheckDecls' :: MonadWriter [TypeError] m => TypeEnvironment -> [F0Declaration Symbol Maybe] -> m (TypeEnvironment, [F0Declaration Symbol Identity])
+typecheckDecls' env = \case 
+  [] -> return (env, [])
+  F0Value name _ e : decls -> 
+    case typecheck env e of 
+      Left errors -> do 
+        tell errors 
+        -- Pretend this name can be used with any type so it doesn't produce more type errors 
+        env <- return $ extendEnv env name (Forall ["a"] (F0TypeVariable "a"))
+        typecheckDecls' env decls 
+
+      Right (e, scheme@(Forall _ t)) -> do 
+        env <- return $ extendEnv env name scheme 
+        (env, decls) <- typecheckDecls' env decls 
+        return (env, F0Value name (Identity t) e : decls)

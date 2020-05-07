@@ -46,7 +46,7 @@ mkSymbol s = do
 dummySymbol :: Symbol 
 dummySymbol = Symbol (-1, "")
 
-symbolize :: forall typeInfo. [F0Declaration String typeInfo] -> Either [SymbolError] [F0Declaration Symbol typeInfo]
+symbolize :: [F0Declaration String typeInfo] -> Either [SymbolError] [F0Declaration Symbol typeInfo]
 symbolize decls = 
   case runWriter $ evalStateT (go Map.empty decls) 0 of 
     (symbolizedDecls, []) -> Right symbolizedDecls

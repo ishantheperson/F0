@@ -48,7 +48,7 @@ instance TypeSubstitutable F0Type where
 normalizeSubst :: TypeSubstitutable a => a -> Substitution
 normalizeSubst t = 
   let vars = Set.toList $ freeTypeVariables t 
-      subst = map (\(v, i) -> (v, F0TypeVariable (names !! i))) (zip vars [0..])
+      subst = zipWith (\v i -> (v, F0TypeVariable (names !! i))) vars [0..]
   in Map.fromList subst
   where names :: [String]
         names = map pure ['a'..'z'] ++ do 

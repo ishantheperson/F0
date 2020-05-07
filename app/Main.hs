@@ -1,44 +1,63 @@
 {-# LANGUAGE ExistentialQuantification #-}
 module Main where
 
+import Control.Monad 
+
+import System.IO 
+import System.Environment
+
+import qualified Options.Applicative as Opts
+
 import Text.Megaparsec
 import Text.Show.Pretty 
-import Control.Monad.Writer.Strict 
-import System.IO 
-import Data.Either 
 
 import Parser.AST 
-import Parser.ASTUtil
 import Parser.Internal 
 import Codegen.Symbolize
 
 import Typechecker.Infer 
 
-run p s = case runParser p "" s of 
-  Right r -> pPrint r  
-  Left e -> putStrLn (errorBundlePretty e) 
+data CompilerOptions = CompilerOptions 
+  {
+    printAst :: Bool,
+    file :: FilePath
+  }
 
-forceDecls :: String -> [F0Declaration String Maybe]
-forceDecls s = fromRight undefined (runParser f0Decls "" s)
+compilerOptions = CompilerOptions 
+  <$> Opts.switch (Opts.long "print-ast" <> Opts.help "print out the AST after parsing")
+  <*> (Opts.argument Opts.str (Opts.metavar "<input file>"))
 
-getExpr :: String -> F0Expression Symbol Maybe
-getExpr s = case head (fromRight undefined $ symbolize $ forceDecls s) of 
-  F0Value _ _ e -> e 
-  _ -> error "not a value"
-
-forceSymbols :: String -> [F0Declaration Symbol Maybe]
-forceSymbols s = fromRight undefined $ symbolize $ forceDecls ("val foo = " ++ s)
-
-typecheckE :: String -> Either [TypeError] Scheme
-typecheckE s = 
-  let (F0Value _ _ e) = head $ fromRight undefined $ symbolize $ forceDecls ("val foo = " ++ s)
-  in snd <$> typecheck e 
+options = Opts.info (compilerOptions Opts.<**> Opts.helper) Opts.fullDesc
 
 main :: IO ()
-main = forever $ do 
-  putStr "> "
-  hFlush stdout
-  input <- getLine 
-  case typecheckE input of 
-    Left errs -> print errs 
-    Right (Forall _ t) -> putStrLn $ printType t 
+main = do 
+  options <- Opts.execParser options 
+  text <- readFile (file options)
+  
+  parseTree <- case runParser f0Decls (file options) text of 
+                 Left errors -> do 
+                   putStrLn $ errorBundlePretty errors 
+                   fail "Parsing failed"
+
+                 Right ast -> do 
+                   when (printAst options) (pPrint ast)
+                   return ast 
+
+  symbolized <- case symbolize parseTree of 
+                  Left errors -> do 
+                    mapM_ print errors 
+                    fail "Symbolization failed"
+
+                  Right ast -> do 
+                    when (printAst options) (pPrint ast)
+                    return ast 
+
+  (typeEnv, typeAST) <- case typecheckDecls emptyEnv symbolized of 
+                          Left errors -> do 
+                            mapM_ print errors 
+                            fail "Typechecking failed"
+
+                          Right results -> return results 
+
+  when (printAst options) (pPrint typeAST)
+  putStr $ printEnv typeEnv 

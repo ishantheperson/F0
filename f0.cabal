@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f62d5a4fe76a4ece3d92bb5c37f071f072b4843a8d5aa1b00d8c6182406579ab
+-- hash: 915449970349ca38bc7565d42f00d3980c9bbddaa700a661de101371a6644e07
 
 name:           f0
 version:        0.1.0.0
@@ -44,6 +44,7 @@ library
     , hspec
     , megaparsec
     , mtl
+    , optparse-applicative
     , parser-combinators
     , pretty-show
   default-language: Haskell2010
@@ -62,6 +63,7 @@ executable f0-exe
     , hspec
     , megaparsec
     , mtl
+    , optparse-applicative
     , parser-combinators
     , pretty-show
   default-language: Haskell2010
@@ -81,6 +83,7 @@ test-suite f0-test
     , hspec
     , megaparsec
     , mtl
+    , optparse-applicative
     , parser-combinators
     , pretty-show
   default-language: Haskell2010
