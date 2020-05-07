@@ -26,7 +26,7 @@ data F0Expression symbol typeInfo =
   | F0IntLiteral Integer -- TODO: Change this to a F0Literal case 
   | F0StringLiteral String 
   | F0Identifier symbol  
-  | F0TypeAssertion (F0Expression symbol typeInfo) F0Type
+  | F0TypeAssertion (F0Expression symbol typeInfo) F0Type -- Removed since type inference is buggy with this
   | F0OpExp F0Operator [F0Expression symbol typeInfo] -- ^ arithmetic ops, comparison ops, etc. 
   | F0ExpPos SourcePos (F0Expression symbol typeInfo) SourcePos -- ^ Start, Expression, End 
 
@@ -56,4 +56,3 @@ data F0PrimitiveType =
   | F0StringType 
   | F0BoolType
   deriving (Show, Eq)
-  

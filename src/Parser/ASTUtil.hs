@@ -22,12 +22,48 @@ freeVariables bound = \case
   F0OpExp _ es -> Set.unions (freeVariables bound <$> es)
   F0ExpPos _ e _ -> freeVariables bound e 
 
+class TypeSubstitutable a where 
+  applySubst :: Substitution -> a -> a 
+  freeTypeVariables :: a -> Set TypeVariable
+
+type Substitution = Map TypeVariable F0Type 
+emptySubstitution :: Substitution
+emptySubstitution = Map.empty 
+
+-- Apply substitution s1 to s2, and also apply s1 
+composeSubstitution :: Substitution -> Substitution -> Substitution
+composeSubstitution s1 s2 = Map.map (applySubst s1) s2 `Map.union` s1 
+
+instance TypeSubstitutable F0Type where 
+  applySubst s = \case 
+    t@(F0TypeVariable a) -> Map.findWithDefault t a s 
+    F0Function a b -> applySubst s a `F0Function` applySubst s b 
+    t -> t 
+
+  freeTypeVariables = \case 
+    F0TypeVariable a -> Set.singleton a 
+    F0Function a b -> freeTypeVariables a `Set.union` freeTypeVariables b 
+    _ -> Set.empty     
+
+normalizeSubst :: TypeSubstitutable a => a -> Substitution
+normalizeSubst t = 
+  let vars = Set.toList $ freeTypeVariables t 
+      subst = map (\(v, i) -> (v, F0TypeVariable (names !! i))) (zip vars [0..])
+  in Map.fromList subst
+  where names :: [String]
+        names = map pure ['a'..'z'] ++ do 
+          i <- [1..]
+          j <- ['a'..'z']
+          return (j : show i)
+
 printType :: F0Type -> String 
-printType = \case 
-  F0PrimitiveType p -> printPrimitiveType p 
-  F0TypeIdent s -> s 
-  F0TypeVariable a -> "'" ++ a 
-  F0Function a b -> printType a ++ " -> (" ++ printType b ++ ")" 
+printType t = printType' $ applySubst (normalizeSubst t) t  
+  where printType' :: F0Type -> String 
+        printType' = \case 
+          F0PrimitiveType p -> printPrimitiveType p 
+          F0TypeIdent s -> s 
+          F0TypeVariable a -> "'" ++ a 
+          F0Function a b -> concat ["(", printType' a, ") -> (", printType' b, ")" ]
 
 printPrimitiveType :: F0PrimitiveType -> String 
 printPrimitiveType = \case 

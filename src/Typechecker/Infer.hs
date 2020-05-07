@@ -50,27 +50,6 @@ runInfer = undefined
     (_, errors) -> Left errors 
 -}
 
-type Substitution = Map TypeVariable F0Type 
-emptySubstitution = Map.empty 
-
--- Apply substitution s1 to s2, and also apply s1 
-composeSubstitution s1 s2 = Map.map (applySubst s1) s2 `Map.union` s1 
-
-class TypeSubstitutable a where 
-  applySubst :: Substitution -> a -> a 
-  freeTypeVariables :: a -> Set TypeVariable
-
-instance TypeSubstitutable F0Type where 
-  applySubst s = \case 
-    t@(F0TypeVariable a) -> Map.findWithDefault t a s 
-    F0Function a b -> applySubst s a `F0Function` applySubst s b 
-    t -> t 
-
-  freeTypeVariables = \case 
-    F0TypeVariable a -> Set.singleton a 
-    F0Function a b -> freeTypeVariables a `Set.union` freeTypeVariables b 
-    _ -> Set.empty 
-
 instance TypeSubstitutable Scheme where 
   applySubst s (Forall vars t) = Forall vars $ applySubst s' t 
     where s' = foldr Map.delete s vars 
@@ -150,11 +129,10 @@ infer :: Infer m => TypeEnvironment -> Maybe SourceRange -> F0Expression Symbol 
                  -> m (F0Expression Symbol Identity, (Substitution, F0Type)) 
 infer env range = \case 
   F0Identifier x -> do 
-    inferred <- lookupVar env x
-    return (F0Identifier x, inferred)
+    (s, t) <- lookupVar env x
+    return (F0Identifier x, (s, t))
 
   F0TypeAssertion e t -> do 
-    tv <- F0TypeVariable <$> mkFreshVar
     (e, (s1, t1)) <- infer env range e 
     s2 <- unify range t1 t 
     let t = applySubst s2 t1
@@ -164,12 +142,11 @@ infer env range = \case
     tv <- F0TypeVariable <$> mkFreshVar
     env <- return $ extendEnv env x (Forall [] tv)
     (e, (s1, t1)) <- infer env range e 
-
     let t = applySubst s1 tv
     return (F0Lambda x (Identity t) e, (s1, F0Function t t1) )
 
   F0Lambda x (Just t) e -> do 
-    env <- return $ extendEnv env x (Forall [] t)
+    env <- return $ extendEnv env x (generalize env t)
     (e, (s1, t1)) <- infer env range e 
 
     t <- return $ applySubst s1 t
@@ -183,27 +160,27 @@ infer env range = \case
     return (F0App e1 e2, (s3 `composeSubstitution` s2 `composeSubstitution` s1, applySubst s3 tv))
 
   F0IntLiteral i -> return (F0IntLiteral i, (emptySubstitution, F0PrimitiveType F0IntType))
+  F0StringLiteral s -> return (F0StringLiteral s, (emptySubstitution, F0PrimitiveType F0StringType))
   F0ExpPos start e end -> do 
     (e, inferred) <- infer env (Just (start, end)) e 
     return (F0ExpPos start e end, inferred)
 
 -- | Returns typechecking errors, or AST with type information inserted as well as the most general type
-typecheck :: F0Expression Symbol Maybe -> Either [TypeError] (F0Expression Symbol Identity, F0Type)
+typecheck :: F0Expression Symbol Maybe -> Either [TypeError] (F0Expression Symbol Identity, Scheme)
 typecheck e = case runWriter (evalStateT (infer emptyEnv Nothing e) 0) of 
   ((e, (s, t)), []) -> 
     let e' = applySubst s e -- Insert type information into the expression
         normalizer = normalizeSubst e' -- Rename all type variables in e to a, b, c, ...
-    in Right (applySubst normalizer e', applySubst normalizer t)
+    in Right (applySubst normalizer e', generalize emptyEnv $ applySubst (normalizer `composeSubstitution` s) t)
   (_, errors) -> Left errors
 
-
-normalizeSubst :: TypeSubstitutable a => a -> Substitution
-normalizeSubst t = 
-  let vars = Set.toList $ freeTypeVariables t 
-      subst = map (\(v, i) -> (v, F0TypeVariable (names !! i))) (zip vars [0..])
-  in Map.fromList subst
-  where names :: [String]
-        names = map pure ['a'..'z'] ++ do 
-          i <- [1..]
-          j <- ['a'..'z']
-          return (j : show i)
+-- normalizeSubst :: TypeSubstitutable a => a -> Substitution
+-- normalizeSubst t = 
+--   let vars = Set.toList $ freeTypeVariables t 
+--       subst = map (\(v, i) -> (v, F0TypeVariable (names !! i))) (zip vars [0..])
+--   in Map.fromList subst
+--   where names :: [String]
+--         names = map pure ['a'..'z'] ++ do 
+--           i <- [1..]
+--           j <- ['a'..'z']
+--           return (j : show i)

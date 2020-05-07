@@ -22,12 +22,12 @@ parseDecl = tryParse f0Decl
 
 typecheckE :: String -> Either [TypeError] F0Type
 typecheckE s = 
-  let (F0Value _ _ e) = head $ fromRight undefined $ symbolize $ forceDecls ("val foo = " ++ s)
-  in snd <$> typecheck e 
+  let (F0Value _ _ e) = head $ fromRight (error "typecheckE: Symbolization failed") $ symbolize $ forceDecls ("val foo = " ++ s)
+  in fmap (\(_, Forall _ t) -> t) (typecheck e)
 
 -- | Used when you know a string is going to parse into a list of decls 
 forceDecls :: String -> [F0Declaration String Maybe]
-forceDecls s = map removePositionInfo $ fromRight undefined (runParser f0Decls "" s)
+forceDecls s = map removePositionInfo $ fromRight (error "forceDecls: Parsing failed") (runParser f0Decls "" s)
 
 parseExpTests, parseTypeTests, parseDeclTests :: SpecWith ()
 parseExpTests = describe "Expression parsing" $ do 
@@ -76,10 +76,10 @@ freeVarsTests = describe "Free vars of expressions" $ do
 symbolizerTests :: SpecWith ()
 symbolizerTests = describe "Symbol conversion tests" $ do 
   it "reports an error for an unbound variable" $
-    symbolize (forceDecls "fun foo x = y") `shouldBe` Left [(Nothing, UnboundVariable "y")]
+    symbolize (forceDecls "fun foo x = y") `shouldBe` Left [SymbolError (Nothing, UnboundVariable "y")]
 
   it "reports an error for an unbound variable which is bound in another expression" $ 
-    symbolize (forceDecls "val f = (fn x => x) x") `shouldBe` Left [(Nothing, UnboundVariable "x")]
+    symbolize (forceDecls "val f = (fn x => x) x") `shouldBe` Left [SymbolError (Nothing, UnboundVariable "x")]
 
   it "properly distinguishes shadowed bindings across decls" $ 
     symbolize (forceDecls "val x = 3\nval x = x") `shouldBe` (Right [
@@ -109,10 +109,11 @@ typeInferenceTests = describe "Type inference tests" $ do
   it "rejects an infinite type" $
     typecheckE "fn x => x x" `shouldSatisfy` isLeft 
 
-  it "respects expression type annotation restrict polymorphism" $ 
-    typecheckE "fn x => (fn y => x : int) x" `shouldBe` Right (
-      F0PrimitiveType F0IntType `F0Function` F0PrimitiveType F0IntType
-    )
+  -- Removed expression type annotations
+  -- it "respects expression type annotation restrict polymorphism" $ 
+  --   typecheckE "fn x => (fn y => x : int) x" `shouldBe` Right (
+  --     F0PrimitiveType F0IntType `F0Function` F0PrimitiveType F0IntType
+  --   )
 
   it "gives the correct type to the constant function" $ 
     typecheckE "fn x => fn y => x" `shouldBe` Right (
@@ -122,6 +123,14 @@ typeInferenceTests = describe "Type inference tests" $ do
   it "respects type annotation on a lambda" $ 
     typecheckE "fn x => fn y : int => x" `shouldBe` Right (
       F0TypeVariable "a" `F0Function` (F0PrimitiveType F0IntType `F0Function` F0TypeVariable "a")
+    )
+
+  -- it "distinguishes different given type variables" $ 
+  --   typecheckE "fn (x: 'a) => (x: 'b)" `shouldSatisfy` isLeft 
+
+  it "can check a polymorphic application inside a lambda" $
+    typecheckE "fn x => (fn y => y x) (fn x => x)" `shouldBe` Right (
+      F0TypeVariable "a" `F0Function` F0TypeVariable "a"
     )
 
 main :: IO ()

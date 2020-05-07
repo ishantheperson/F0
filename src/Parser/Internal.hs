@@ -51,7 +51,7 @@ f0Expression = makeExprParser (term >>= postfix) operators
           choice (parens f0Expression : (positioned <$> [f0Lambda, f0If, f0IntLiteral, f0StringLiteral, f0Ident]))
         postfix e = 
               positioned (F0App e <$> f0Expression)
-          <|> positioned (F0TypeAssertion e <$> (symbol ":" >> f0Type))
+          -- <|> positioned (F0TypeAssertion e <$> (symbol ":" >> f0Type))
           <|> return e 
         operators = [[binOp "*" Times],
                      [binOp "+" Plus],

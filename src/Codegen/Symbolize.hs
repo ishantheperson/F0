@@ -7,7 +7,7 @@
 -- type is a string into one where
 -- the symbol type is able to 
 -- distinguish between shadowed variables
-module Codegen.Symbolize (symbolize, SymbolErrorType(..), Symbol(..)) where 
+module Codegen.Symbolize (symbolize, SymbolErrorType(..), Symbol(..), SymbolError(..)) where 
 
 import Parser.AST 
 
@@ -30,7 +30,7 @@ instance Ord Symbol where
 
 type SymbolMap = Map String Symbol 
 data SymbolErrorType = UnboundVariable String deriving (Show, Eq)
-type SymbolError = (Maybe SourceRange, SymbolErrorType)
+newtype SymbolError = SymbolError (Maybe SourceRange, SymbolErrorType) deriving (Show, Eq)
 type SymbolContext m = (MonadState Int m, MonadWriter [SymbolError] m) 
 type Symbolizer m (a :: * -> (* -> *) -> *) (b :: * -> *) = 
   SymbolContext m => SymbolMap -> Maybe SourceRange -> a String b -> m (a Symbol b)
@@ -98,7 +98,7 @@ symbolizeExpr symbolMap position = \case
     case Map.lookup name symbolMap of 
       Just symbol -> return $ F0Identifier symbol 
       Nothing -> do 
-        tell [(position, UnboundVariable name)]
+        tell [SymbolError (position, UnboundVariable name)]
         return $ F0Identifier dummySymbol
 
   _ -> error "symbolizeExpr: not yet implemented!"
