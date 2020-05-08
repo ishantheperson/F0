@@ -13,7 +13,9 @@ import Text.Show.Pretty
 
 import Parser.AST 
 import Parser.Internal 
+
 import Codegen.Symbolize
+import Codegen.Closure 
 
 import Typechecker.Infer 
 
@@ -43,6 +45,9 @@ main = do
                    when (printAst options) (pPrint ast)
                    return ast 
 
+  -- Insert main value (_main)
+  parseTree <- return $ parseTree ++ [F0Value "_main" (Just $ F0PrimitiveType F0IntType) (F0Identifier "main")]
+
   symbolized <- case symbolize parseTree of 
                   Left errors -> do 
                     mapM_ print errors 
@@ -60,4 +65,10 @@ main = do
                           Right results -> return results 
 
   when (printAst options) (pPrint typeAST)
+
+  let e = programToExpression typeAST 
+  
+  pPrint e 
+  pPrint (runCodegen (codegenExpr [] e))
+
   putStr $ printEnv typeEnv 

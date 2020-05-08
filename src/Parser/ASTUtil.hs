@@ -20,14 +20,14 @@ declName = \case
 -- | Takes an expression, a map from 
 -- identifiers to their types (the context at this point)
 -- and returns the free variables of an expression and their types
-freeVariables :: Ord s => Set s -> F0Expression s f -> Set s 
-freeVariables bound = \case
-  F0Lambda name t e -> freeVariables (Set.insert name bound) e 
-  F0App e1 e2 -> freeVariables bound e1 `Set.union` freeVariables bound e2 
+freeVariables :: Ord s => F0Expression s f -> Set s 
+freeVariables = \case
+  F0Lambda name t e -> Set.singleton name <> freeVariables e 
+  F0App e1 e2 -> freeVariables e1 <> freeVariables e2 
   F0Identifier x -> Set.singleton x 
   F0Literal _ -> Set.empty 
-  F0OpExp _ es -> Set.unions (freeVariables bound <$> es)
-  F0ExpPos _ e _ -> freeVariables bound e 
+  F0OpExp _ es -> Set.unions (freeVariables <$> es)
+  F0ExpPos _ e _ -> freeVariables e 
 
 class TypeSubstitutable a where 
   subst :: Substitution -> a -> a 
