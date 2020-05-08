@@ -21,10 +21,10 @@ data F0Expression symbol typeInfo =
     -- F0Fix symbol (typeInfo F0Type) (F0Expression symbol typeInfo) -- ^ fix Name as Expression 
     F0Lambda symbol (typeInfo F0Type) (F0Expression symbol typeInfo) -- ^ fn x (: t) => etc 
   | F0App (F0Expression symbol typeInfo) (F0Expression symbol typeInfo) -- ^ e1 e2 
+  | F0Let (F0Declaration symbol typeInfo) (F0Expression symbol typeInfo) -- ^ let decl in e end. Multiple decls become nested lets
   -- If could be an operator 
   | F0If (F0Expression symbol typeInfo) (F0Expression symbol typeInfo) (F0Expression symbol typeInfo) -- ^ if e1 then e2 else e3 
-  | F0IntLiteral Integer -- TODO: Change this to a F0Literal case 
-  | F0StringLiteral String 
+  | F0Literal F0Literal 
   | F0Identifier symbol  
   | F0TypeAssertion (F0Expression symbol typeInfo) F0Type -- Removed since type inference is buggy with this
   | F0OpExp F0Operator [F0Expression symbol typeInfo] -- ^ arithmetic ops, comparison ops, etc. 
@@ -35,6 +35,12 @@ deriving instance (Show (typeInfo F0Type), Show symbol) => Show (F0Expression sy
 
 deriving instance (Eq (typeInfo F0Type), Eq symbol) => Eq (F0Declaration symbol typeInfo)
 deriving instance (Eq (typeInfo F0Type), Eq symbol) => Eq (F0Expression symbol typeInfo)
+
+data F0Literal = 
+    F0IntLiteral Integer 
+  | F0StringLiteral String 
+  | F0BoolLiteral Bool 
+  deriving (Show, Eq)
 
 data F0Operator = 
     Plus 

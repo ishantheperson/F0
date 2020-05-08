@@ -81,7 +81,6 @@ symbolizeDecl symbolMap position = \case
     decl <- F0Fun nameSymbol (zip argSymbols argTypes) t <$> symbolizeExpr symbolMap position body
     return (decl, name, nameSymbol)
 
-
 symbolizeExpr :: Symbolizer m F0Expression typeInfo
 symbolizeExpr symbolMap position = \case
   F0ExpPos start e end -> F0ExpPos start <$> symbolizeExpr symbolMap (Just (start, end)) e <*> pure end 
@@ -91,9 +90,13 @@ symbolizeExpr symbolMap position = \case
 
   F0App e1 e2 -> F0App <$> symbolizeExpr symbolMap position e1 <*> symbolizeExpr symbolMap position e2
   F0OpExp op exps -> F0OpExp op <$> mapM (symbolizeExpr symbolMap position) exps
-  F0IntLiteral i -> return $ F0IntLiteral i 
-  F0StringLiteral s -> return $ F0StringLiteral s
+  F0Literal l -> return $ F0Literal l
   F0TypeAssertion e t -> F0TypeAssertion <$> symbolizeExpr symbolMap position e <*> pure t
+  F0Let decl e -> do 
+    (decl, name, nameSym) <- symbolizeDecl symbolMap position decl 
+    e <- symbolizeExpr (Map.insert name nameSym symbolMap) position e 
+    return $ F0Let decl e 
+
   F0Identifier name -> 
     case Map.lookup name symbolMap of 
       Just symbol -> return $ F0Identifier symbol 

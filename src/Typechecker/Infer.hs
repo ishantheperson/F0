@@ -73,6 +73,7 @@ instance TypeSubstitutable (F0Expression Symbol Identity) where
     F0If e1 e2 e3 -> F0If (subst s e1) (subst s e2) (subst s e3)
     F0TypeAssertion e t -> F0TypeAssertion (subst s e) (subst s t)
     F0ExpPos start e end -> F0ExpPos start (subst s e) end 
+    F0Let d e -> F0Let d (subst s e)
     other -> other 
 
   freeTypeVariables = \case 
@@ -82,6 +83,7 @@ instance TypeSubstitutable (F0Expression Symbol Identity) where
     F0If e1 e2 e3 -> Set.unions (freeTypeVariables <$> [e1, e2, e3])
     F0TypeAssertion e t -> freeTypeVariables t <> freeTypeVariables e
     F0ExpPos start e end -> freeTypeVariables e 
+    F0Let d e -> freeTypeVariables e 
     other -> Set.empty  
 
 -- | There is no way we can unify a ~ b if a appears in b
@@ -141,7 +143,6 @@ infer env range = \case
 
   F0Lambda x Nothing e -> do 
     tv <- F0TypeVariable <$> freshName
-    traceM ("tv: " ++ show tv ++ " for " ++ show x)
     env <- return $ extendEnv env x (Forall [] tv)
     (e, (s1, t1)) <- infer env range e 
 
@@ -166,28 +167,19 @@ infer env range = \case
     (e1, (s1, t1)) <- infer env range e1 
     (e2, (s2, t2)) <- infer (subst s1 env) range e2 
 
-    -- s3 <- unify range t1 (F0PrimitiveType F0IntType)
-    -- s4 <- unify range t2 (F0PrimitiveType F0IntType)
-
-    -- traceM (ppShow s1)
-    -- traceM (ppShow s2)
-    -- traceM (ppShow s3)
-    -- traceM (ppShow s4)
-    -- undefined 
-
     tv <- F0TypeVariable <$> freshName
 
-    traceM (ppShow s1)
-    traceM (ppShow s2)
-
     s3 <- unify range (t1 `F0Function` t2 `F0Function` tv) (F0PrimitiveType F0IntType `F0Function` F0PrimitiveType F0IntType `F0Function` F0PrimitiveType F0IntType)
-    traceM (ppShow (s1 `composeSubst` s2 `composeSubst` s3))
     return (F0OpExp op [e1, e2], (s1 `composeSubst` s2 `composeSubst` s3, subst s3 tv))
 
   F0OpExp _ _ -> error "infer: Currently all operators should only have two operands!"
 
-  F0IntLiteral i -> return (F0IntLiteral i, (emptySubstitution, F0PrimitiveType F0IntType))
-  F0StringLiteral s -> return (F0StringLiteral s, (emptySubstitution, F0PrimitiveType F0StringType))
+  F0Let d e -> do 
+    (d, t) <- inferDecl env d 
+    infer (extendEnv env (declName d) t) range e 
+
+  F0Literal (F0IntLiteral i) -> return (F0Literal (F0IntLiteral i), (emptySubstitution, F0PrimitiveType F0IntType))
+  F0Literal (F0StringLiteral s) -> return (F0Literal (F0StringLiteral s), (emptySubstitution, F0PrimitiveType F0StringType))
   F0ExpPos start e end -> do 
     (e, inferred) <- infer env (Just (start, end)) e 
     return (F0ExpPos start e end, inferred)
@@ -199,8 +191,6 @@ inferDecl env = \case
     (e, (s, t)) <- infer env Nothing e 
     t <- return $ subst s t 
     let scheme = generalize env t 
-
-    -- traceM (ppShow t)
 
     return (F0Value name (Identity t) e, scheme)
 

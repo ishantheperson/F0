@@ -45,12 +45,22 @@ f0Expression = makeExprParser (term >>= postfix) operators
         f0If = F0If <$> (reserved "if" *> f0Expression) 
                     <*> (reserved "then" *> f0Expression) 
                     <*> (reserved "else" *> f0Expression)
-        f0IntLiteral = F0IntLiteral <$> integer 
-        f0StringLiteral = F0StringLiteral <$> stringLiteral
+        f0IntLiteral = F0Literal . F0IntLiteral <$> integer 
+        f0StringLiteral = F0Literal . F0StringLiteral <$> stringLiteral
+        f0BoolLiteral = F0Literal . F0BoolLiteral <$> boolLiteral 
         f0Ident = F0Identifier <$> identifier
-        
+        f0Let = do 
+          reserved "let"
+          decls <- f0Decls 
+          reserved "in"
+          e <- f0Expression 
+          reserved "end"
+          return $ foldr F0Let e decls 
+
+        boolLiteral = (True <$ reserved "true") <|> (False <$ reserved "false")
+
         term = 
-          choice (parens f0Expression : (positioned <$> [f0Lambda, f0If, f0IntLiteral, f0StringLiteral, f0Ident]))
+          choice (parens f0Expression : (positioned <$> [f0Lambda, f0If, f0IntLiteral, f0StringLiteral, f0Ident, f0Let]))
         postfix e = 
               positioned (functionApp e) <|> return e 
           -- <|> positioned (F0TypeAssertion e <$> (symbol ":" >> f0Type))
@@ -109,6 +119,7 @@ identifier = (lexeme . try) (p >>= check) <?> "identifier"
 -- reserved :: String -> Parser () 
 reserved word = (lexeme . try) (string word *> notFollowedBy alphaNumChar)
 
+reservedWords :: [String]
 reservedWords = ["val",
                  "fun",
                  "if",
@@ -117,7 +128,10 @@ reservedWords = ["val",
                  "fn",
                  "int",
                  "string",
-                 "fix"]
+                 "bool",
+                 "let",
+                 "in",
+                 "end"]
 
 parens, lexeme :: Parser a -> Parser a 
 parens = between (symbol "(") (symbol ")")

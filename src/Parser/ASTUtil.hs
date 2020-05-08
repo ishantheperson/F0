@@ -25,8 +25,7 @@ freeVariables bound = \case
   F0Lambda name t e -> freeVariables (Set.insert name bound) e 
   F0App e1 e2 -> freeVariables bound e1 `Set.union` freeVariables bound e2 
   F0Identifier x -> Set.singleton x 
-  F0IntLiteral _ -> Set.empty 
-  F0StringLiteral _ -> Set.empty 
+  F0Literal _ -> Set.empty 
   F0OpExp _ es -> Set.unions (freeVariables bound <$> es)
   F0ExpPos _ e _ -> freeVariables bound e 
 
@@ -96,3 +95,10 @@ instance RemovablePosition (F0Expression s t) where
   removePositionInfo (F0App e1 e2) = F0App (removePositionInfo e1) (removePositionInfo e2) 
   removePositionInfo (F0If e1 e2 e3) = F0If (removePositionInfo e1) (removePositionInfo e2) (removePositionInfo e3)
   removePositionInfo other = other 
+
+f0Int :: Integer -> F0Expression a b 
+f0Int = F0Literal . F0IntLiteral 
+
+f0IntT, f0StringT :: F0Type 
+f0IntT = F0PrimitiveType F0IntType
+f0StringT = F0PrimitiveType F0StringType
