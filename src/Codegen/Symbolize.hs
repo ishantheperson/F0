@@ -97,6 +97,10 @@ symbolizeExpr symbolMap position = \case
     e <- symbolizeExpr (Map.insert name nameSym symbolMap) position e 
     return $ F0Let decl e 
 
+  F0If e1 e2 e3 -> do 
+    ~[e1, e2, e3] <- mapM (symbolizeExpr symbolMap position) [e1, e2, e3]
+    return $ F0If e1 e2 e3 
+
   F0Identifier name -> 
     case Map.lookup name symbolMap of 
       Just symbol -> return $ F0Identifier symbol 
@@ -104,4 +108,4 @@ symbolizeExpr symbolMap position = \case
         tell [SymbolError (position, UnboundVariable name)]
         return $ F0Identifier dummySymbol
 
-  _ -> error "symbolizeExpr: not yet implemented!"
+  -- _ -> error "symbolizeExpr: not yet implemented!"

@@ -96,9 +96,11 @@ instance RemovablePosition (F0Expression s t) where
   removePositionInfo (F0If e1 e2 e3) = F0If (removePositionInfo e1) (removePositionInfo e2) (removePositionInfo e3)
   removePositionInfo other = other 
 
+-- | Shortcuts (helpful when writing test cases)
 f0Int :: Integer -> F0Expression a b 
 f0Int = F0Literal . F0IntLiteral 
 
-f0IntT, f0StringT :: F0Type 
+f0IntT, f0StringT, f0BoolT :: F0Type 
 f0IntT = F0PrimitiveType F0IntType
 f0StringT = F0PrimitiveType F0StringType
+f0BoolT = F0PrimitiveType F0BoolType

@@ -169,7 +169,7 @@ infer env range = \case
 
     tv <- F0TypeVariable <$> freshName
 
-    s3 <- unify range (t1 `F0Function` t2 `F0Function` tv) (F0PrimitiveType F0IntType `F0Function` F0PrimitiveType F0IntType `F0Function` F0PrimitiveType F0IntType)
+    s3 <- unify range (t1 `F0Function` t2 `F0Function` tv) (f0IntT `F0Function` f0IntT `F0Function` (if op == Equals then f0BoolT else f0IntT))
     return (F0OpExp op [e1, e2], (s1 `composeSubst` s2 `composeSubst` s3, subst s3 tv))
 
   F0OpExp _ _ -> error "infer: Currently all operators should only have two operands!"
@@ -178,8 +178,19 @@ infer env range = \case
     (d, t) <- inferDecl env d 
     infer (extendEnv env (declName d) t) range e 
 
-  F0Literal (F0IntLiteral i) -> return (F0Literal (F0IntLiteral i), (emptySubstitution, F0PrimitiveType F0IntType))
-  F0Literal (F0StringLiteral s) -> return (F0Literal (F0StringLiteral s), (emptySubstitution, F0PrimitiveType F0StringType))
+  F0If e1 e2 e3 -> do 
+    (e1, (s1, t1)) <- infer env range e1 
+    (e2, (s2, t2)) <- infer (subst s1 env) range e2 
+    (e3, (s3, t3)) <- infer (subst s2 env) range e3 -- Should this substitute s2 `compose` s1? 
+
+    s4 <- unify range t1 f0BoolT
+    s5 <- unify range t2 t3 -- Need to substitute here?
+    return (F0If e1 e2 e3, (s5 `composeSubst` s4 `composeSubst` s3 `composeSubst` s2 `composeSubst` s1, subst s5 t2))
+
+  F0Literal (F0IntLiteral i) -> return (F0Literal (F0IntLiteral i), (emptySubstitution, f0IntT))
+  F0Literal (F0StringLiteral s) -> return (F0Literal (F0StringLiteral s), (emptySubstitution, f0StringT))
+  F0Literal (F0BoolLiteral b) -> return (F0Literal (F0BoolLiteral b), (emptySubstitution, f0BoolT))
+
   F0ExpPos start e end -> do 
     (e, inferred) <- infer env (Just (start, end)) e 
     return (F0ExpPos start e end, inferred)

@@ -162,6 +162,10 @@ typeInferenceTests = describe "Type inference tests" $ do
     typecheckD "fun foo x = let val x = 3 val x = \"hello\" in x end" (Symbol (0, "foo")) `shouldBe`
       Right (Forall ["_x1"] $ F0TypeVariable "_x1" `F0Function` f0StringT)
 
+  it "gives the correct type to parameters used in an if expression" $ 
+    typecheckD "fun foo a b c = if a then b else c" (Symbol (0, "foo")) `shouldBe`
+      Right (Forall ["_x3"] $ f0BoolT `F0Function` F0TypeVariable "_x3" `F0Function` (F0TypeVariable "_x3" `F0Function` F0TypeVariable "_x3"))
+
 main :: IO ()
 main = hspec $ do 
   describe "Parser" $ do 

@@ -57,6 +57,8 @@ data F0Type =
   | F0Function F0Type F0Type 
   deriving (Show, Eq)
 
+infixr `F0Function`
+
 data F0PrimitiveType = 
     F0IntType 
   | F0StringType 
