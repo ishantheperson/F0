@@ -10,7 +10,6 @@ import Text.Megaparsec
 import Text.Megaparsec.Char
 import Text.Megaparsec.Debug 
 import qualified Text.Megaparsec.Char.Lexer as Lex
-import Control.Monad.Combinators
 import Control.Monad.Combinators.Expr
 
 import Debug.Trace 
@@ -31,7 +30,7 @@ f0Decl = positioned fun <|> positioned val
     where val = uncurry F0Value <$> (reserved "val" *> name) <*> (symbol "=" *> f0Expression)
           fun = F0Fun <$> (reserved "fun" *> identifier) 
                       <*> some arg 
-                      <*> optional (symbol ":" >> f0Type) 
+                      <*> typeAnnotation
                       <*> (symbol "=" *> f0Expression)
 
           arg = parens arg <|> name <?> "function argument"
@@ -53,10 +52,8 @@ f0Expression = makeExprParser (term >>= postfix) operators
         term = 
           choice (parens f0Expression : (positioned <$> [f0Lambda, f0If, f0IntLiteral, f0StringLiteral, f0Ident]))
         postfix e = 
-              -- positioned (F0App e <$> f0Expression)
-              positioned (functionApp e)
+              positioned (functionApp e) <|> return e 
           -- <|> positioned (F0TypeAssertion e <$> (symbol ":" >> f0Type))
-          <|> return e 
 
         functionApp e = foldl F0App e <$> some term 
 
@@ -84,7 +81,10 @@ f0Type = makeExprParser term operators <?> "type"
 
 -- | Parses a name and maybe a type assertion with it
 name :: Parser (String, Maybe F0Type)
-name = ((,) <$> identifier <*> optional (symbol ":" >> f0Type)) <|> parens name 
+name = (,) <$> identifier <*> typeAnnotation <|> parens name
+
+typeAnnotation :: Parser (Maybe F0Type)
+typeAnnotation = optional (symbol ":" *> f0Type) <?> "type annotation"
 
 -- Lexing 
 symbol :: String -> Parser String

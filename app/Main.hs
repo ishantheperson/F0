@@ -34,7 +34,7 @@ main = do
   options <- Opts.execParser options 
   text <- readFile (file options)
   
-  parseTree <- case runParser f0Decls (file options) text of 
+  parseTree <- case runParser (sc *> f0Decls <* eof) (file options) text of 
                  Left errors -> do 
                    putStrLn $ errorBundlePretty errors 
                    fail "Parsing failed"
