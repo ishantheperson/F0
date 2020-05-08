@@ -41,7 +41,7 @@ data C0Type =
     C0IntType -- ^ int
   | C0StringType -- ^ string 
   | C0BoolType -- ^ bool
-  | C0ClosureType -- ^ struct f0_closure 
+  | C0ClosureType -- ^ struct f0_closure*. Cannot be used by user code 
   deriving (Show, Eq)
 
 data C0VariableReference = 
@@ -56,6 +56,7 @@ data C0Expression =
   | C0Unbox C0Type C0Expression -- ^ Uncast and dereference to target type
   | C0CallClosure C0Expression C0Expression -- ^ cast closure to f0_closure*, call function pointer with closure + arg
   | C0Op F0Operator C0Expression C0Expression -- ^ unboxes ints, performs operation, reboxes
+  
   -- | Turning a function into a value. The int identifies which function (as lambdas for example are unnamed)
   -- The ints inside the tuple identify which index in the closure that argument should be written to 
   | C0MakeClosure Int [(Symbol, C0VariableReference, Int)] 
