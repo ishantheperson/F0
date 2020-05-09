@@ -134,6 +134,7 @@ codegenExpr env = \case
   F0Let (F0Value name _ e) letBody -> do 
     -- Could check if the value is a function before inserting itself into the environment
     value <- codegenExpr ((name, C0RecursiveReference) : env) e 
+    -- value <- codegenExpr ((name, C0ScopeReference name) : env) e 
     letE <- codegenExpr ((name, C0ScopeReference name) : env) letBody 
 
     return $ C0Declare name value letE 

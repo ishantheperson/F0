@@ -135,7 +135,7 @@ outputExpr = \case
 
   C0Identifier ref -> do 
     result <- freshName 
-    let x = resolveRef ref 
+    let x = resolveRefIdent ref 
     outputLine $ printf "void* %s = %s;" result x
     return result 
 
@@ -170,9 +170,9 @@ outputExpr = \case
     capturedArrayName <- freshName 
     outputLine $ printf "void*[] %s = alloc_array(void*, %d);" capturedArrayName numCaptured 
     outputLine $ printf "%s->captured = %s;" closureName capturedArrayName
-    forM_ closureInfo $ \(name, ref, i) -> do 
-      let x = resolveRef ref 
-      outputLine $ printf "%s[%d] = %s;" capturedArrayName i x 
+    forM_ closureInfo $ \(Symbol (_, name), ref, i) -> do 
+      let x = resolveRefClosure closureName ref 
+      outputLine $ printf "%s[%d] = %s; // (capture '%s')" capturedArrayName i x name 
 
     boxedClosureName <- freshName 
     outputLine $ printf "void* %s = (void*)%s;" boxedClosureName closureName 
@@ -220,12 +220,17 @@ outputProgram (mainE, C0CodegenState functionPool) =
           forM_ (zip [0..] functionPool) outputFunction
           outputMain mainE  
 
-resolveRef :: C0VariableReference -> [Char]
-resolveRef ref = case ref of 
-              C0ArgumentReference -> "arg"
-              C0ClosureReference i -> printf "closure->captured[%d]" i
-              C0ScopeReference s -> varName s 
-              C0RecursiveReference -> "closure"
+resolveRefIdent :: C0VariableReference -> [Char]
+resolveRefIdent = \case  
+  C0ArgumentReference -> "arg"
+  C0ClosureReference i -> printf "closure->captured[%d]" i
+  C0ScopeReference s -> varName s 
+  C0RecursiveReference -> "closure"
+
+resolveRefClosure :: String -> C0VariableReference -> String
+resolveRefClosure closureName = \case 
+  C0RecursiveReference -> "(void*)" ++ closureName 
+  other -> resolveRefIdent other 
 
 printType :: C0Type -> String 
 printType = \case 

@@ -25,12 +25,14 @@ data CompilerOptions = CompilerOptions
   {
     printAst :: Bool,
     printTypes :: Bool,
+    printTransformed :: Bool,
     file :: FilePath
   }
 
 compilerOptions = CompilerOptions 
   <$> Opts.switch (Opts.long "print-ast" <> Opts.help "print out the AST after parsing")
   <*> Opts.switch (Opts.long "print-types" <> Opts.help "print out the types of the top level decls")
+  <*> Opts.switch (Opts.long "print-transformed" <> Opts.help "print out the transformed program")
   <*> (Opts.argument Opts.str (Opts.metavar "<input file>"))
 
 options = Opts.info (compilerOptions Opts.<**> Opts.helper) Opts.fullDesc
@@ -75,6 +77,7 @@ main = do
   let e = programToExpression typeAST 
   
   let c0Program = runCodegen (codegenExpr [] e)
+  when (printTransformed options) $ pPrint c0Program
 
   let outputFileName = dropExtension inputFile ++ ".c1"
 
