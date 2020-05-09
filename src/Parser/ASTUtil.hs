@@ -31,6 +31,8 @@ freeVariables = \case
   F0OpExp _ es -> Set.unions (freeVariables <$> es)
   F0ExpPos _ e _ -> freeVariables e 
   F0If e1 e2 e3 -> Set.unions (freeVariables <$> [e1, e2, e3])
+  F0Tuple es -> Set.unions (freeVariables <$> es)
+  F0TupleAccess _ _ e -> freeVariables e 
   F0Let d e -> freeVariables (exprFromDecl d) <> freeVariables e 
   where exprFromDecl = \case 
           F0Value _ _ e -> e 
@@ -114,4 +116,10 @@ instance RemovablePosition (F0Expression s t) where
   removePositionInfo (F0Lambda name t e) = F0Lambda name t (removePositionInfo e)
   removePositionInfo (F0App e1 e2) = F0App (removePositionInfo e1) (removePositionInfo e2) 
   removePositionInfo (F0If e1 e2 e3) = F0If (removePositionInfo e1) (removePositionInfo e2) (removePositionInfo e3)
+  removePositionInfo (F0Let d e) = F0Let (removePositionInfo d) (removePositionInfo e)
+  removePositionInfo (F0Tuple es) = F0Tuple (removePositionInfo es)
+  removePositionInfo (F0TupleAccess i n e) = F0TupleAccess i n (removePositionInfo e)
   removePositionInfo other = other 
+
+instance RemovablePosition a => RemovablePosition [a] where 
+  removePositionInfo = fmap removePositionInfo

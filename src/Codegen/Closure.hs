@@ -49,6 +49,8 @@ data C0Expression =
   | C0MakeClosure Int [(Symbol, C0VariableReference, Int)] 
   | C0Identifier C0VariableReference
   | C0Literal C0Literal 
+  | C0CreateTuple [C0Expression] -- ^ the tuple is an array of void* 
+  | C0AccessTuple Int C0Expression -- ^ indexing into a statically known index
   | C0Declare Symbol C0Expression C0Expression -- ^ declare X as E1 in E2
   deriving (Show, Eq)
 
@@ -129,6 +131,11 @@ codegenExpr env = \case
     falseBranch <- codegenExpr env e3 
 
     return $ C0If (C0Unbox F0BoolType test) trueBranch falseBranch 
+
+  F0Tuple es -> C0CreateTuple <$> mapM (codegenExpr env) es 
+  F0TupleAccess i _ e -> do 
+    tuple <- codegenExpr env e 
+    return $ C0AccessTuple i tuple 
 
   F0Let (F0Value name _ e) letBody -> do 
     -- Could check if the value is a function before inserting itself into the environment

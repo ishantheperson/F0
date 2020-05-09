@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE LambdaCase #-}
@@ -35,6 +36,9 @@ generalDecls = unlines
     "",
     "// The type of all F0 functions",
     "typedef void* f0_function(struct f0_closure* f0_closure, void* arg);",
+    "",
+    "// Type of tuples",
+    "typedef void*[] f0_tuple;",
     "",
     "// Contains the captured variables as well as the actual function to call",
     "struct f0_closure {",
@@ -159,6 +163,31 @@ outputExpr = \case
     outputLine $ printf "%s %s = %s %s %s;" (printPrimitiveTypeC0 t) result a (printOp op) b 
     return result 
 
+  C0CreateTuple es -> do 
+    let tupleSize = length es 
+
+    tuplePtrName <- freshName
+    outputLine $ printf "f0_tuple* %s = alloc(f0_tuple);" tuplePtrName 
+
+    tupleName <- freshName 
+    outputLine $ printf "f0_tuple %s = alloc_array(void*, %d);" tupleName tupleSize 
+    outputLine $ printf "*%s = %s;" tuplePtrName tupleName
+
+    forM_ (zip [0..] es) $ \(i :: Int, e) -> do 
+      element <- outputExpr e 
+      outputLine $ printf "%s[%d] = %s;" tupleName i element 
+
+    result <- freshName 
+    outputLine $ printf "void* %s = (void*)%s;" result tuplePtrName 
+    return result  
+
+  C0AccessTuple i e -> do 
+    tuple <- outputExpr e 
+    result <- freshName
+
+    outputLine $ printf "void* %s = (*(f0_tuple*)%s)[%d];" result tuple i 
+    return result 
+
   C0Identifier ref -> do 
     result <- freshName 
     let x = resolveRefIdent ref 
@@ -214,7 +243,6 @@ outputExpr = \case
     boxedClosureName <- freshName 
     outputLine $ printf "void* %s = (void*)%s;" boxedClosureName closureName 
     return boxedClosureName
-
 
   C0MakeClosure functionIndex closureInfo -> do 
     closureName <- freshName 

@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 module Parser.Internal where 
 
 import Data.Void 
@@ -18,7 +19,7 @@ type Parser = Parsec Void String
 -- type Parser = ParsecT Void String (Writer [ParseError String Void])
 
 f0Decls :: Parser [F0Declaration String Maybe]
-f0Decls = catMaybes <$> many (recover (Just <$> f0Decl)) 
+f0Decls = concat <$> many f0Decl
   where recover = id 
           -- Recovery is right now broken since it messes up
           -- let declarations 
@@ -30,23 +31,60 @@ f0Decls = catMaybes <$> many (recover (Just <$> f0Decl))
           someTill anySingle (void . lookAhead $ choice (reserved <$> ["fun", "val"]) <|> eof)
           return Nothing -}
 
-f0Decl :: Parser (F0Declaration String Maybe)
-f0Decl = positioned fun <|> positioned val
-    where val = uncurry F0Value <$> (try $ reserved "val" *> name) <*> (symbol "=" *> f0Expression)
-          fun = F0Fun <$> (try $ reserved "fun" *> identifier) 
-                      <*> some arg 
-                      <*> typeAnnotation
-                      <*> (symbol "=" *> f0Expression)
+data Pattern = Name String | Tuple [String] | Discard
 
-          arg = parens arg <|> name <?> "function argument"
+-- | May generate multiple bindings as a result of a tuple binding
+f0Decl :: Parser [F0Declaration String Maybe]
+f0Decl = positioned fun <|> positioned val
+    where val = do 
+            reserved "val"
+            name <- pat 
+            symbol "="
+            e <- f0Expression
+            case name of 
+              Name s -> return [F0Value s Nothing e]
+              Discard -> return [F0Value "_discard" Nothing e]
+              Tuple ts -> return ([F0Value "_tuple" Nothing e] ++ go ts 0)
+                where numItems = length ts 
+                      go [] _ = [] 
+                      go (t:ts) i = (F0Value t Nothing (F0TupleAccess i numItems (F0Identifier "_tuple"))) : go ts (i + 1)
+
+          fun = do 
+            name <- reserved "fun" *> identifier  
+            args <- zip [0..] <$> some pat 
+            e <- symbol "=" *> f0Expression
+            let desugarArg :: (Int, Pattern) -> F0Expression String Maybe -> F0Expression String Maybe
+                desugarArg (i, p) e = case p of 
+                  Name s -> e 
+                  Discard -> e 
+                  Tuple ts -> desugarTuple ts ("_tuple" ++ show i) e 
+
+                newFunctionBody = foldr desugarArg e args
+
+                transformArg :: (Int, Pattern) -> String 
+                transformArg = \case 
+                  (_, Name s) -> s 
+                  (_, Discard) -> "_discard"
+                  (i, Tuple _) -> "_tuple" ++ show i 
+
+                -- TODO: use arrows here lmao 
+                functionArgs = map (\a -> (transformArg a, Nothing)) args  
+
+            return [F0Fun name functionArgs Nothing newFunctionBody]
 
           positioned p = p
             -- F0DeclPos <$> getSourcePos <*> p <*> getSourcePos
 
 f0Expression :: Parser (F0Expression String Maybe)
 f0Expression = makeExprParser (term >>= postfix) operators 
-  where f0Lambda = uncurry F0Lambda <$> (reserved "fn" *> name) 
-                                    <*> (symbol "=>" *> f0Expression)
+  where f0Lambda = do 
+          name <- reserved "fn" *> pat 
+          e <- symbol "=>" *> f0Expression
+          return $ case name of 
+                     Name n -> F0Lambda n Nothing e 
+                     Discard -> F0Lambda "_discard" Nothing e 
+                     Tuple ts -> F0Lambda "_tuple" Nothing (desugarTuple ts "_tuple" e)
+
         f0If = F0If <$> (reserved "if" *> f0Expression) 
                     <*> (reserved "then" *> f0Expression) 
                     <*> (reserved "else" *> f0Expression)
@@ -73,7 +111,9 @@ f0Expression = makeExprParser (term >>= postfix) operators
                      _ -> F0Tuple elems 
 
         term = positioned $ 
-          choice [f0Let, f0Lambda, f0If, f0UnitLiteral, f0IntLiteral, f0StringLiteral, f0BoolLiteral, f0Ident, f0Tuple]
+          choice [f0Let, f0Lambda, f0If, 
+                  f0UnitLiteral, f0IntLiteral, f0StringLiteral, f0BoolLiteral, 
+                  f0Ident, f0Tuple]
         postfix e = 
               positioned (functionApp e) <|> return e 
           -- <|> positioned (F0TypeAssertion e <$> (symbol ":" >> f0Type))
@@ -100,6 +140,22 @@ f0Expression = makeExprParser (term >>= postfix) operators
         positioned p =   -- Source information for expressions can clutter up the AST a lot
                          -- so right now I am removing it 
             p -- F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
+
+-- | Takes a tuple pattern and creates bindings for it in a subexpression e 
+desugarTuple :: [String] -> String -> F0Expression String Maybe -> F0Expression String Maybe 
+desugarTuple tupleNames tupleName e = go tupleNames 0 e 
+  where numItems = length tupleNames 
+        go [] _ e = e 
+        go ("_":ts) i e = go ts (i + 1) e 
+        go ("()":ts) i e = go ts (i + 1)e 
+        go (t:ts) i e = go ts (i + 1) (F0Let (F0Value t Nothing (F0TupleAccess i numItems (F0Identifier tupleName))) e)
+
+pat :: Parser Pattern 
+pat = 
+      (Name <$> identifier) 
+  <|> (Discard <$ (symbol "()" <|> symbol "_")) 
+  <|> (parens $ Tuple <$> (sepBy1 (identifier <|> string "_") (symbol ",")))
+  <?> "pattern"
 
 -- Basically unused
 f0Type :: Parser F0Type

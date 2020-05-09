@@ -85,6 +85,7 @@ instance TypeSubstitutable (F0Expression Symbol Identity) where
     F0ExpPos start e end -> F0ExpPos start (subst s e) end 
     F0Let d e -> F0Let d (subst s e)
     F0Tuple es -> F0Tuple (subst s es)
+    F0TupleAccess i n e -> F0TupleAccess i n (subst s e)
     other -> other 
 
   freeTypeVariables = \case 
@@ -96,6 +97,7 @@ instance TypeSubstitutable (F0Expression Symbol Identity) where
     F0ExpPos start e end -> freeTypeVariables e 
     F0Let d e -> freeTypeVariables e 
     F0Tuple es -> Set.unions (freeTypeVariables <$> es)
+    F0TupleAccess _ _ e -> freeTypeVariables e
     other -> Set.empty  
 
 -- | There is no way we can unify a ~ b if a appears in b
@@ -203,13 +205,14 @@ infer env range = \case
     (s, ts, es) <- inferMany emptySubstitution es
     return (F0Tuple es, (s, subst s (F0TupleType ts)))
 
-    where inferMany :: Infer m => Substitution -> [F0Expression Symbol Maybe] 
-                               -> m (Substitution, [F0Type], [F0Expression Symbol Identity])
-          inferMany s [] = return (s, [], [])
-          inferMany s (e:es) = do 
-            (s1, ts, es) <- inferMany s es 
-            (e, (s2, t)) <- infer (subst s1 env) range e 
-            return (s2 `composeSubst` s1, t:ts, e:es) 
+  F0TupleAccess i n e -> do 
+    (e1, (s1, t1)) <- infer env range e 
+    tvs <- replicateM n (F0TypeVariable <$> freshName)
+    s2 <- unify range (F0TupleType tvs) t1 
+    
+    return (F0TupleAccess i n e1, (s2 `composeSubst` s1, getNth (subst s2 t1) i))
+    where getNth (F0TupleType ts) i = ts !! i 
+          getNth _ _ = error "should be a tuple type by now"
 
   F0Let d e -> do 
     (d, s, t) <- inferDecl env range d -- inferDecl may return a substitution
@@ -233,6 +236,15 @@ infer env range = \case
   F0ExpPos start e end -> do 
     (e, inferred) <- infer env (Just (start, end)) e 
     return (F0ExpPos start e end, inferred)
+
+  where inferMany :: Infer m => Substitution -> [F0Expression Symbol Maybe] 
+                              -> m (Substitution, [F0Type], [F0Expression Symbol Identity])
+        inferMany s [] = return (s, [], [])
+        inferMany s (e:es) = do 
+          (s1, ts, es) <- inferMany s es 
+          (e, (s2, t)) <- infer (subst s1 env) range e 
+          return (s2 `composeSubst` s1, t:ts, e:es) 
+
 
 inferDecl :: Infer m => TypeEnvironment -> Maybe SourceRange -> F0Declaration Symbol Maybe 
                      -> m (F0Declaration Symbol Identity, Substitution, Scheme)

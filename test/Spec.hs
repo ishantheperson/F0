@@ -108,17 +108,17 @@ parseTypeTests = describe "Type parsing" $ do
 
 parseDeclTests = describe "Declaration parsing" $ do 
   it "parses val binding to int literal without type annotation" $
-    parseDecl "val x = 3" `shouldBe` Right (F0Value "x" Nothing (f0Int 3))
+    parseDecl "val x = 3" `shouldBe` Right [F0Value "x" Nothing (f0Int 3)]
 
   it "parses val binding to int literal with type annotation" $ 
-    parseDecl "val x : int = 3" `shouldBe` Right (F0Value "x" (Just (f0IntT)) (f0Int 3))
+    parseDecl "val x : int = 3" `shouldBe` Right [F0Value "x" (Just (f0IntT)) (f0Int 3)]
 
   it "does not parse fun decl without arguments" $ 
     parseDecl "fun foo = 3" `shouldSatisfy` isLeft
 
   it "parses line comments and whitespace correctly" $ 
     parseDecl "fun foo x = -- Line comment\n  x + x" 
-      `shouldBe` Right (F0Fun "foo" [("x", Nothing)] Nothing (F0OpExp Plus [F0Identifier "x", F0Identifier "x"]))
+      `shouldBe` Right [F0Fun "foo" [("x", Nothing)] Nothing (F0OpExp Plus [F0Identifier "x", F0Identifier "x"])]
 
 freeVarsTests :: SpecWith ()
 freeVarsTests = describe "Free vars of expressions" $ do 
@@ -160,7 +160,7 @@ symbolizerTests = describe "Symbol conversion tests" $ do
     ])
 
 typeInferenceTests :: SpecWith ()
-typeInferenceTests = describe "Type inference tests" $ do 
+typeInferenceTests = do 
   it "gives the correct type to the identity function" $ 
     typecheckE "fn x => x" `shouldBe` Right (F0TypeVariable "a" `F0Function` F0TypeVariable "a")
 
@@ -235,7 +235,7 @@ typeInferenceTests = describe "Type inference tests" $ do
 
   it "uses constraints of a branch" $ 
     typecheckD "fun foo a b = if true then a else b" (Symbol (0, "foo")) `shouldBe`
-      Right (Forall ["_x1"] $ F0TypeVariable "_x1" `F0Function` F0TypeVariable "_x1" `F0Function` F0TypeVariable "_x1")
+      Right (Forall ["_x2"] $ F0TypeVariable "_x2" `F0Function` F0TypeVariable "_x2" `F0Function` F0TypeVariable "_x2")
 
 integrationTests :: SpecWith () 
 integrationTests = do 

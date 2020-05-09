@@ -122,6 +122,10 @@ symbolizeExpr symbolMap position = \case
     es <- mapM (symbolizeExpr symbolMap position) es 
     return $ F0Tuple es 
 
+  F0TupleAccess i n e -> do 
+    e <- symbolizeExpr symbolMap position e 
+    return $ F0TupleAccess i n e 
+
   F0Identifier name -> 
     case Map.lookup name symbolMap of 
       Just symbol -> return $ F0Identifier symbol 

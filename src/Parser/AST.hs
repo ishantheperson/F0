@@ -1,3 +1,4 @@
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ExplicitForAll #-}
 {-# LANGUAGE StrictData #-}
@@ -31,15 +32,18 @@ data F0Expression symbol typeInfo =
   | F0Literal F0Literal 
   | F0Identifier symbol  
   | F0Tuple [F0Expression symbol typeInfo]
+  | F0TupleAccess Int Int (F0Expression symbol typeInfo) -- ^ access element i out of n in e 
   | F0TypeAssertion (F0Expression symbol typeInfo) F0Type -- Removed since type inference is buggy with this
   | F0OpExp F0Operator [F0Expression symbol typeInfo] -- ^ arithmetic ops, comparison ops, etc. 
   | F0ExpPos SourcePos (F0Expression symbol typeInfo) SourcePos -- ^ Start, Expression, End 
 
 deriving instance (Show (typeInfo F0Type), Show symbol) => Show (F0Declaration symbol typeInfo)
 deriving instance (Show (typeInfo F0Type), Show symbol) => Show (F0Expression symbol typeInfo)
+-- deriving instance (Show (typeInfo F0Type), Show symbol) => Show (F0Pattern symbol typeInfo)
 
 deriving instance (Eq (typeInfo F0Type), Eq symbol) => Eq (F0Declaration symbol typeInfo)
 deriving instance (Eq (typeInfo F0Type), Eq symbol) => Eq (F0Expression symbol typeInfo)
+-- deriving instance (Eq (typeInfo F0Type), Eq symbol) => Eq (F0Pattern symbol typeInfo)
 
 data F0Literal = 
     F0IntLiteral Integer 
