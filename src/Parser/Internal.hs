@@ -81,11 +81,15 @@ f0Expression = makeExprParser (term >>= postfix) operators
                      [binOp "<" LessThan],
                      [binOp "==" Equals],
                      [binOp "&&" And],
-                     [binOp "||" Or]]
+                     [binOp "||" Or],
+                     [semicolon]]
           where prefixOp opString opConstructor = 
                   Prefix (symbol opString *> return (\a -> F0OpExp opConstructor [a]))
                 binOp opString opConstructor = 
                   InfixL (symbol opString *> return (\a b -> F0OpExp opConstructor [a, b])) 
+
+                semicolon = 
+                  InfixR (symbol ";" *> return (\a b -> F0Let (F0Value "_discard" Nothing a) b))
         positioned p =   -- Source information for expressions can clutter up the AST a lot
                          -- so right now I am removing it 
             F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
