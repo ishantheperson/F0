@@ -247,7 +247,7 @@ outputExpr = \case
     return result 
 
 outputFunction :: PrintC0 m => (Int, C0Function) -> m () 
-outputFunction (i, (C0Function _ _ e)) = do 
+outputFunction (i, (C0Function _ e)) = do 
   outputLine $ printf "void* %s(struct f0_closure* closure, void* arg) {" (functionName i)
   
   indent 

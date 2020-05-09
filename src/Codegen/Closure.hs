@@ -38,11 +38,7 @@ import GHC.Stack
 import Debug.Trace 
 
 -- Using F0PrimitiveType instead 
--- data C0Type = 
---     C0IntType -- ^ int
---    C0StringType -- ^ string 
---    C0BoolType -- ^ bool
---   deriving (Show, Eq)
+-- data C0Type = ..
 
 data C0VariableReference = 
     C0ArgumentReference -- ^ This is the function's argument
@@ -75,17 +71,13 @@ data C0Literal =
   | C0BoolLiteral Bool 
   deriving (Show, Eq)
 
--- | A function's environment is described
--- by what's in scope (C0ScopeReference),
--- its argument, and also what it has captured.
--- These are all represented as C0VariableReference.
--- We store a mapping from symbols to how they can be accessed.
--- (FALSE?) ~Since we need indices, we cannot easily use a Map here.~
+-- | TODO: Remove C0Environment from C0Function. All the 
+-- information is already in the expression  
 --
 -- The first parameter is a string (doesn't have to be unique)
 -- The third parameter is just the function's code.
 data C0Function = 
-  C0Function (Maybe Symbol) C0Environment C0Expression
+  C0Function (Maybe Symbol) C0Expression
   deriving (Show, Eq)
 
 newtype C0CodegenState = C0CodegenState
@@ -102,14 +94,14 @@ type Codegen = MonadState C0CodegenState
 runCodegen :: State C0CodegenState a -> (a, C0CodegenState)
 runCodegen = flip runState initialCodegenState
 
-addFunction :: Codegen m => C0Environment -> C0Expression -> m Int 
-addFunction closure exp = do 
+addFunction :: Codegen m => C0Expression -> m Int 
+addFunction exp = do 
   C0CodegenState currentState <- get 
   let i = length currentState 
-  put $ C0CodegenState (currentState ++ [C0Function Nothing closure exp])
+  put $ C0CodegenState (currentState ++ [C0Function Nothing exp])
   return i 
 
-codegenExpr :: (HasCallStack, Codegen m)=> C0Environment -> F0Expression Symbol typeInfo -> m C0Expression 
+codegenExpr :: Codegen m => C0Environment -> F0Expression Symbol typeInfo -> m C0Expression 
 codegenExpr env = \case 
   F0ExpPos _ e _ -> codegenExpr env e 
   F0TypeAssertion e _ -> codegenExpr env e 
@@ -151,7 +143,6 @@ codegenExpr env = \case
   F0Let (F0Value name _ e) letBody -> do 
     -- Could check if the value is a function before inserting itself into the environment
     value <- codegenExpr ((name, C0RecursiveReference) : env) e 
-    -- value <- codegenExpr ((name, C0ScopeReference name) : env) e 
     letE <- codegenExpr ((name, C0ScopeReference name) : env) letBody 
 
     return $ C0Declare name value letE 
@@ -162,7 +153,7 @@ codegenExpr env = \case
 
     newEnv <- return $ (argName, C0ArgumentReference):newEnv
     translatedExp <- codegenExpr newEnv e 
-    functionIndex <- addFunction newEnv translatedExp 
+    functionIndex <- addFunction translatedExp 
 
     return $ C0MakeClosure functionIndex definedClosure 
 
@@ -179,7 +170,7 @@ codegenExpr env = \case
                         case lookup x env of 
                           -- If it is not in the environment
                           -- Then it must be bound later in this expression
-                          -- This should be unreachable
+                          -- This should be unreachable but isn't for some reason 
                           Nothing -> resolveVars closureIndex newFunctionEnv definedClosure xs 
                           Just ref -> 
                             resolveVars (closureIndex + 1) 
