@@ -24,7 +24,7 @@ Supported features:
  - `let` expressions
  - Line comments with `--` 
  - Block comments with `(*` 
- - See `testcases/` or `test/Spec.hs` for examples
+ - See `test/testcases/` or `test/Spec.hs` for examples
 
 ## Example
 
