@@ -56,7 +56,8 @@ data C0Expression =
   | C0Unbox C0Type C0Expression -- ^ Uncast and dereference to target type
   | C0CallClosure C0Expression C0Expression -- ^ cast closure to f0_closure*, call function pointer with closure + arg
   | C0Op F0Operator C0Expression C0Expression -- ^ unboxes ints, performs operation, reboxes
-  
+  | C0If C0Expression C0Expression C0Expression  
+
   -- | Turning a function into a value. The int identifies which function (as lambdas for example are unnamed)
   -- The ints inside the tuple identify which index in the closure that argument should be written to 
   | C0MakeClosure Int [(Symbol, C0VariableReference, Int)] 
@@ -130,6 +131,13 @@ codegenExpr env = \case
     return $ C0Box (if op == Equals then C0BoolType else C0IntType) $ C0Op op (C0Unbox C0IntType a) (C0Unbox C0IntType b)
 
   F0OpExp _ _ -> error "codegenExpr: All operators should only have 2 operands at present"
+
+  F0If e1 e2 e3 -> do 
+    test <- codegenExpr env e1 
+    trueBranch <- codegenExpr env e2 
+    falseBranch <- codegenExpr env e3 
+
+    return $ C0If (C0Unbox C0BoolType test) trueBranch falseBranch 
 
   F0Let (F0Value name _ e) letBody -> do 
     -- Could check if the value is a function before inserting itself into the environment

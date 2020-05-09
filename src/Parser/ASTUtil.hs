@@ -28,6 +28,7 @@ freeVariables = \case
   F0Literal _ -> Set.empty 
   F0OpExp _ es -> Set.unions (freeVariables <$> es)
   F0ExpPos _ e _ -> freeVariables e 
+  F0If e1 e2 e3 -> Set.unions (freeVariables <$> [e1, e2, e3])
 
 class TypeSubstitutable a where 
   subst :: Substitution -> a -> a 

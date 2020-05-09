@@ -44,6 +44,7 @@ data F0Literal =
 
 data F0Operator = 
     Plus 
+  | Minus
   | Times 
   | Equals
   deriving (Show, Eq)  

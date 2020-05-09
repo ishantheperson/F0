@@ -68,7 +68,8 @@ f0Expression = makeExprParser (term >>= postfix) operators
         functionApp e = foldl F0App e <$> some term 
 
         operators = [[binOp "*" Times],
-                     [binOp "+" Plus],
+                     [binOp "+" Plus,
+                      binOp "-" Minus],
                      [binOp "==" Equals]]
           where binOp opString opConstructor = 
                   InfixL (symbol opString >> return (\a b -> F0OpExp opConstructor [a, b])) 

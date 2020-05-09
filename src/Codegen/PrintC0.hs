@@ -150,6 +150,30 @@ outputExpr = \case
     outputLine $ printf "%s %s = %s;" (printType t) result x 
     return result 
 
+  C0If e1 e2 e3 -> do 
+    result <- freshName 
+    outputLine $ printf "void* %s;" result 
+    test <- outputExpr e1 
+    
+    outputLine $ printf "if (%s) {" test 
+    indent 
+    
+    trueValue <- outputExpr e2 
+    outputLine $ printf "%s = %s;" result trueValue 
+    
+    unindent 
+
+    outputLine "} else {"
+    indent 
+
+    falseValue <- outputExpr e3
+    outputLine $ printf "%s = %s;" result falseValue
+
+    unindent 
+    outputLine "}"
+
+    return result 
+
   C0Declare n e letBody -> do 
     obj <- outputExpr e 
     outputLine $ printf "void* %s = %s;" (varName n) obj 
@@ -243,6 +267,7 @@ printOp :: F0Operator -> String
 printOp = \case 
   Equals -> "=="
   Plus -> "+"
+  Minus -> "-"
   Times -> "*"
 
 maxOrZero [] = 0
