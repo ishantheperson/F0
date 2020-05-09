@@ -60,7 +60,7 @@ f0Expression = makeExprParser (term >>= postfix) operators
         boolLiteral = (True <$ reserved "true") <|> (False <$ reserved "false")
 
         term = 
-          choice (parens f0Expression : (positioned <$> [f0Lambda, f0If, f0IntLiteral, f0StringLiteral, f0Ident, f0Let]))
+          choice (parens f0Expression : (positioned <$> [f0Lambda, f0If, f0IntLiteral, f0StringLiteral, f0BoolLiteral, f0Let, f0Ident]))
         postfix e = 
               positioned (functionApp e) <|> return e 
           -- <|> positioned (F0TypeAssertion e <$> (symbol ":" >> f0Type))
@@ -79,9 +79,9 @@ f0Expression = makeExprParser (term >>= postfix) operators
                   Prefix (symbol opString *> return (\a -> F0OpExp opConstructor [a]))
                 binOp opString opConstructor = 
                   InfixL (symbol opString *> return (\a b -> F0OpExp opConstructor [a, b])) 
-        positioned p = p  -- Source information for expressions can clutter up the AST a lot
+        positioned p =   -- Source information for expressions can clutter up the AST a lot
                          -- so right now I am removing it 
-          -- F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
+          F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
 
 f0Type :: Parser F0Type
 f0Type = makeExprParser term operators <?> "type"

@@ -185,12 +185,7 @@ outputExpr = \case
   C0Declare n e letBody -> do 
     obj <- outputExpr e 
     outputLine $ printf "void* %s = %s;" (varName n) obj 
-    
-    indent 
-    result <- outputExpr letBody 
-    unindent
-    
-    return result 
+    outputExpr letBody 
 
   C0MakeClosure functionIndex closureInfo -> do 
     closureName <- freshName 

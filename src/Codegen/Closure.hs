@@ -175,7 +175,7 @@ codegenExpr env = \case
                           -- If it is not in the environment
                           -- Then it must be bound later in this expression
                           -- This should be unreachable
-                          Nothing -> undefined -- resolveVars closureIndex newFunctionEnv definedClosure xs 
+                          Nothing -> resolveVars closureIndex newFunctionEnv definedClosure xs 
                           Just ref -> 
                             resolveVars (closureIndex + 1) 
                                         ((x, C0ClosureReference closureIndex) : newFunctionEnv)
