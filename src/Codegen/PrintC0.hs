@@ -44,11 +44,11 @@ boxingHelpers = unlines $ mkBoxingHelpers =<< [C0IntType, C0StringType, C0BoolTy
   where mkBoxingHelpers :: C0Type -> [String] 
         mkBoxingHelpers (printType -> t) = 
           [ printf "void* f0_box_%s(%s x) { %s* p = alloc(%s); *p = x; return (void*)p; }" t t t t 
-          , printf "%s* f0_unbox_%s(void* p) { return *(%s*)p; }\n" t t t]
+          , printf "%s f0_unbox_%s(void* p) { return *(%s*)p; }\n" t t t]
 
 -- | Gets the canonical name for this function given its index
 functionName :: Int -> String 
-functionName = printf "f0_lambda%d"
+functionName i = printf "f0_lambda%d" i
 
 varName :: Symbol -> String 
 varName (Symbol (i, n)) = printf "f0_var_%s%d" n i 
@@ -68,7 +68,20 @@ data PrintC0State = PrintC0State
   } 
   deriving Show
 
+initialPrintC0State = PrintC0State 
+  {
+    uniqueCount = 0,
+    indentLevel = 0,
+    writtenCode = []
+  }
+
 type PrintC0 = MonadState PrintC0State
+
+runPrintC0 :: State PrintC0State () -> String 
+runPrintC0 p = 
+  let finalState = execState p initialPrintC0State 
+  in unlines . reverse $ writtenCode finalState 
+
 type C0VarName = String 
 
 freshName :: PrintC0 m => m C0VarName 
@@ -152,14 +165,14 @@ outputExpr = \case
     outputLine $ printf "struct f0_closure* %s = alloc(struct f0_closure);" closureName 
     outputLine $ printf "%s->f = &%s;" closureName (functionName functionIndex)
     
-    let numCaptured = maximum $ mapMaybe (\(_, ref, _) -> case ref of C0ClosureReference i -> Just i; _ -> Nothing) closureInfo
+    let numCaptured = length closureInfo
 
     capturedArrayName <- freshName 
     outputLine $ printf "void*[] %s = alloc_array(void*, %d);" capturedArrayName numCaptured 
     outputLine $ printf "%s->captured = %s;" closureName capturedArrayName
     forM_ closureInfo $ \(name, ref, i) -> do 
       let x = resolveRef ref 
-      outputLine $ printf "%s[%d] = %x;" capturedArrayName i x 
+      outputLine $ printf "%s[%d] = %s;" capturedArrayName i x 
 
     boxedClosureName <- freshName 
     outputLine $ printf "void* %s = (void*)%s;" boxedClosureName closureName 
@@ -175,6 +188,37 @@ outputExpr = \case
     result <- freshName 
     outputLine $ printf "void* %s = (*(%s->f))(%s, %s);" result unboxedClosure unboxedClosure arg 
     return result 
+
+outputFunction :: PrintC0 m => (Int, C0Function) -> m () 
+outputFunction (i, (C0Function _ _ e)) = do 
+  outputLine $ printf "void* %s(struct f0_closure* closure, void* arg) {" (functionName i)
+  
+  indent 
+  result <- outputExpr e 
+  outputLine $ printf "return %s;" result 
+  unindent 
+
+  outputLine "}\n"
+
+outputMain :: PrintC0 m => C0Expression -> m () 
+outputMain e = do 
+  outputLine "int main() {"
+
+  indent 
+
+  result <- outputExpr e 
+  outputLine $ printf "return *(int*)%s;" result 
+
+  unindent
+
+  outputLine "}\n"
+
+outputProgram :: (C0Expression, C0CodegenState) -> String 
+outputProgram (mainE, C0CodegenState functionPool) =
+  generalDecls ++ boxingHelpers ++ runPrintC0 go  
+  where go = do 
+          forM_ (zip [0..] functionPool) outputFunction
+          outputMain mainE  
 
 resolveRef :: C0VariableReference -> [Char]
 resolveRef ref = case ref of 
@@ -195,6 +239,9 @@ printOp = \case
   Equals -> "=="
   Plus -> "+"
   Times -> "*"
+
+maxOrZero [] = 0
+maxOrZero xs = maximum xs 
 
 spacesPerIndent :: Int 
 spacesPerIndent = 4

@@ -28,6 +28,7 @@ dependencies:
 - pretty-show
 - hspec
 - optparse-applicative
+- filepath
 
 library:
   source-dirs: src
