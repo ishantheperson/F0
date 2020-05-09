@@ -69,21 +69,30 @@ normalizeSubst t =
           j <- ['a'..'z']
           return (j : show i)
 
+-- | Prints out a type, replacing all type variables with 'a, 'b, etc. 
 printType :: F0Type -> String 
 printType t = printType' $ subst (normalizeSubst t) t  
-  where printType' :: F0Type -> String 
-        printType' = \case 
-          F0PrimitiveType p -> printPrimitiveType p 
-          F0TypeIdent s -> s 
-          F0TypeVariable a -> "'" ++ a 
-          F0Function a@(F0Function _ _) b -> printf "(%s) -> %s" (printType' a) (printType' b) 
-          F0Function a b -> printf "%s -> %s" (printType' a) (printType' b) 
 
-printPrimitiveType :: F0PrimitiveType -> String 
+-- | Prints out a type without normalizing the type variables
+printType' :: F0Type -> String 
+printType' = \case 
+  F0PrimitiveType p -> printPrimitiveType p 
+  F0TypeIdent s -> s 
+  F0TypeVariable a -> "'" ++ a 
+  F0Function a@(F0Function _ _) b -> printf "(%s) -> %s" (printType' a) (printType' b) 
+  F0Function a b -> printf "%s -> %s" (printType' a) (printType' b) 
+
+printPrimitiveType, printPrimitiveTypeC0 :: F0PrimitiveType -> String 
 printPrimitiveType = \case 
   F0IntType -> "int"
   F0StringType -> "string"
   F0BoolType -> "bool"
+  F0UnitType -> "unit"
+
+-- | This version maps unit as a C0 type
+printPrimitiveTypeC0 = \case 
+  F0UnitType -> "bool"
+  other -> printPrimitiveType other
 
 class RemovablePosition a where  
   removePositionInfo :: a -> a 
@@ -106,10 +115,11 @@ instance RemovablePosition (F0Expression s t) where
 f0Int :: Integer -> F0Expression a b 
 f0Int = F0Literal . F0IntLiteral 
 
-f0IntT, f0StringT, f0BoolT :: F0Type 
+f0IntT, f0StringT, f0BoolT, f0UnitT :: F0Type 
 f0IntT = F0PrimitiveType F0IntType
 f0StringT = F0PrimitiveType F0StringType
 f0BoolT = F0PrimitiveType F0BoolType
+f0UnitT = F0PrimitiveType F0UnitType
 
 operatorAsFunctionType :: F0Operator -> F0Type 
 operatorAsFunctionType = \case 

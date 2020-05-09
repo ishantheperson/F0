@@ -57,7 +57,7 @@ main = do
 
   symbolized <- case symbolize parseTree of 
                   Left errors -> do 
-                    mapM_ print errors 
+                    mapM_ (putStrLn . printSymbolError) errors 
                     fail "Symbolization failed"
 
                   Right ast -> do 
@@ -66,7 +66,7 @@ main = do
 
   (typeAST, typeEnv) <- case typecheckDecls emptyEnv symbolized of 
                           Left errors -> do 
-                            mapM_ print errors 
+                            mapM_ (putStrLn . printTypeError) errors 
                             fail "Typechecking failed"
 
                           Right results -> return results 

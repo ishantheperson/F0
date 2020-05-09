@@ -7,6 +7,10 @@ import Text.Megaparsec.Pos
 
 type SourceRange = (SourcePos, SourcePos)
 
+printSourceRange :: Maybe SourceRange -> String 
+printSourceRange Nothing = "<no position information available>"
+printSourceRange (Just (start, end)) = sourcePosPretty start ++ " - " ++ sourcePosPretty end 
+
 -- | Type of a declaration where identifiers
 -- are represented by type "symbol". This lets
 -- us later write a transformation to turn
@@ -40,6 +44,7 @@ data F0Literal =
     F0IntLiteral Integer 
   | F0StringLiteral String 
   | F0BoolLiteral Bool 
+  | F0UnitLiteral 
   deriving (Show, Eq)
 
 data F0Operator = 
@@ -68,4 +73,5 @@ data F0PrimitiveType =
     F0IntType 
   | F0StringType 
   | F0BoolType
+  | F0UnitType
   deriving (Show, Eq)

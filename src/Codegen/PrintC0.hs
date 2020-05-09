@@ -21,6 +21,7 @@ import Parser.AST
 import Parser.ASTUtil 
 import Codegen.Closure 
 import Codegen.Symbolize 
+import LibraryBindings
 
 import Text.Printf 
 import Control.Monad.State.Strict
@@ -30,6 +31,8 @@ import Data.Maybe (mapMaybe)
 generalDecls :: String 
 generalDecls = unlines
   [
+    "#use <conio>",
+    "",
     "// The type of all F0 functions",
     "typedef void* f0_function(struct f0_closure* f0_closure, void* arg);",
     "",
@@ -43,9 +46,23 @@ generalDecls = unlines
 boxingHelpers :: String
 boxingHelpers = unlines $ mkBoxingHelpers =<< [F0IntType, F0StringType, F0BoolType]
   where mkBoxingHelpers :: F0PrimitiveType -> [String] 
-        mkBoxingHelpers (printPrimitiveType -> t) = 
+        mkBoxingHelpers (printPrimitiveTypeC0 -> t) = 
           [ printf "void* f0_box_%s(%s x) { %s* p = alloc(%s); *p = x; return (void*)p; }" t t t t 
           , printf "%s f0_unbox_%s(void* p) { return *(%s*)p; }\n" t t t]
+
+mkLibraryWrapper :: C0LibraryBinding -> String 
+mkLibraryWrapper (C0LibraryBinding name (F0PrimitiveType t `F0Function` f0UnitT)) = 
+  unlines [
+    printf "void* %s(struct f0_closure* closure, void* arg) {" (wrappedNativeName name),
+    printf "    %s(f0_unbox_%s(arg));" name (printPrimitiveTypeC0 t),
+    printf "    return f0_box_int(0);",
+    printf "}"
+  ]
+mkLibraryWrapper _ = error "Unsupported library function type"
+
+-- | Gets the name of the F0 wrapper function for the given native function 
+wrappedNativeName :: String -> String 
+wrappedNativeName s = printf "f0_wrap_%s" s 
 
 -- | Gets the canonical name for this function given its index
 functionName :: Int -> String 
@@ -115,13 +132,13 @@ outputExpr = \case
   C0Box t e -> do 
     unboxed <- outputExpr e 
     result <- freshName
-    outputLine $ printf "void* %s = f0_box_%s(%s);" result (printPrimitiveType t) unboxed
+    outputLine $ printf "void* %s = f0_box_%s(%s);" result (printPrimitiveTypeC0 t) unboxed
     return result 
 
   C0Unbox t e -> do 
     boxed <- outputExpr e 
     result <- freshName
-    outputLine $ printf "%s %s = f0_unbox_%s(%s);" (printPrimitiveType t) result (printPrimitiveType t) boxed
+    outputLine $ printf "%s %s = f0_unbox_%s(%s);" (printPrimitiveTypeC0 t) result (printPrimitiveTypeC0 t) boxed
     return result 
 
   C0Op Not [e1] -> do 
@@ -138,7 +155,7 @@ outputExpr = \case
     result <- freshName 
 
     let t = operatorOutput op 
-    outputLine $ printf "%s %s = %s %s %s;" (printPrimitiveType t) result a (printOp op) b 
+    outputLine $ printf "%s %s = %s %s %s;" (printPrimitiveTypeC0 t) result a (printOp op) b 
     return result 
 
   C0Identifier ref -> do 
@@ -155,7 +172,7 @@ outputExpr = \case
                    C0BoolLiteral True -> (F0BoolType, "true")
                    C0BoolLiteral False -> (F0BoolType, "false")
 
-    outputLine $ printf "%s %s = %s;" (printPrimitiveType t) result x 
+    outputLine $ printf "%s %s = %s;" (printPrimitiveTypeC0 t) result x 
     return result 
 
   C0If e1 e2 e3 -> do 
@@ -187,6 +204,17 @@ outputExpr = \case
     outputLine $ printf "void* %s = %s;" (varName n) obj 
     outputExpr letBody 
 
+  C0NativeFn n -> do 
+    functionObjName <- freshName -- Not really a closure because it never captures anything 
+    closureName <- freshName 
+    outputLine $ printf "struct f0_closure* %s = alloc(struct f0_closure);" closureName 
+    outputLine $ printf "%s->f = &%s;" closureName (wrappedNativeName n)
+    
+    boxedClosureName <- freshName 
+    outputLine $ printf "void* %s = (void*)%s;" boxedClosureName closureName 
+    return boxedClosureName
+
+
   C0MakeClosure functionIndex closureInfo -> do 
     closureName <- freshName 
     outputLine $ printf "struct f0_closure* %s = alloc(struct f0_closure);" closureName 
@@ -194,12 +222,13 @@ outputExpr = \case
     
     let numCaptured = length closureInfo
 
-    capturedArrayName <- freshName 
-    outputLine $ printf "void*[] %s = alloc_array(void*, %d);" capturedArrayName numCaptured 
-    outputLine $ printf "%s->captured = %s;" closureName capturedArrayName
-    forM_ closureInfo $ \(Symbol (_, name), ref, i) -> do 
-      let x = resolveRefClosure closureName ref 
-      outputLine $ printf "%s[%d] = %s; // (capture '%s')" capturedArrayName i x name 
+    unless (numCaptured == 0) $ do 
+      capturedArrayName <- freshName 
+      outputLine $ printf "void*[] %s = alloc_array(void*, %d);" capturedArrayName numCaptured 
+      outputLine $ printf "%s->captured = %s;" closureName capturedArrayName
+      forM_ closureInfo $ \(Symbol (_, name), ref, i) -> do 
+        let x = resolveRefClosure closureName ref 
+        outputLine $ printf "%s[%d] = %s; // (capture '%s')" capturedArrayName i x name 
 
     boxedClosureName <- freshName 
     outputLine $ printf "void* %s = (void*)%s;" boxedClosureName closureName 
@@ -242,10 +271,12 @@ outputMain e = do
 
 outputProgram :: (C0Expression, C0CodegenState) -> String 
 outputProgram (mainE, C0CodegenState functionPool) =
-  generalDecls ++ boxingHelpers ++ runPrintC0 go  
+  generalDecls ++ boxingHelpers ++ libs ++ runPrintC0 go  
   where go = do 
           forM_ (zip [0..] functionPool) outputFunction
           outputMain mainE  
+
+        libs = concat $ map mkLibraryWrapper libraryDefs
 
 resolveRefIdent :: C0VariableReference -> [Char]
 resolveRefIdent = \case  
@@ -269,9 +300,6 @@ printOp = \case
   LessThan -> "<"
   And -> "&&"
   Or -> "||"
-
-maxOrZero [] = 0
-maxOrZero xs = maximum xs 
 
 spacesPerIndent :: Int 
 spacesPerIndent = 4

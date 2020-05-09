@@ -9,6 +9,8 @@ import Parser.ASTUtil
 
 import Codegen.Symbolize (Symbol(..))
 
+import LibraryBindings
+
 import Data.Functor.Identity
 
 import Data.Set (Set)
@@ -19,9 +21,10 @@ import qualified Data.Map.Strict as Map
 import Control.Monad.Writer
 import Control.Monad.State.Strict
 
+import Text.Printf 
 import Text.Show.Pretty
 
-import Debug.Trace 
+import Debug.Trace
 
 -- Based off of: http://dev.stephendiehl.com/fun/006_hindley_milner.html
 
@@ -42,6 +45,12 @@ printEnv (TypeEnvironment e) = unlines $ flip map (Map.toList e) (\((Symbol (_, 
 
 data TypeErrorData = Mismatch F0Type F0Type | InfiniteType TypeVariable F0Type deriving (Show, Eq)
 type TypeError = (Maybe SourceRange, TypeErrorData)
+
+printTypeError :: TypeError -> String 
+printTypeError (range, (Mismatch a b)) = 
+  printf "%s: couldn't match type '%s' with '%s'" (printSourceRange range) (printType a) (printType b)
+printTypeError (range, (InfiniteType a b)) =
+  printf "%s: found infinite type when trying to solve '%s ~ %s'" (printSourceRange range) a (printType' b)
 
 type Infer m = (MonadState Int m, MonadWriter [TypeError] m)
 
@@ -126,7 +135,12 @@ lookupVar (TypeEnvironment env) v =
   case Map.lookup v env of 
     Just s -> do t <- instantiate s 
                  return (emptySubstitution, t)
-    Nothing -> error $ "Unexpected unbound variable (should've been found in symbolization): " ++ show v 
+    Nothing -> 
+      case v of 
+        NativeFunction n -> do 
+          let C0LibraryBinding _ t = libraryBindings Map.! n 
+          return (emptySubstitution, t)
+        _ -> error $ "Unexpected unbound variable (should've been found in symbolization): " ++ show v 
 
 infer :: Infer m => TypeEnvironment -> Maybe SourceRange -> F0Expression Symbol Maybe 
                  -> m (F0Expression Symbol Identity, (Substitution, F0Type)) 
@@ -180,8 +194,9 @@ infer env range = \case
   F0OpExp _ _ -> error "infer: invalid operator combination!"
 
   F0Let d e -> do 
-    (d, t) <- inferDecl env d 
-    infer (extendEnv env (declName d) t) range e 
+    (d, s, t) <- inferDecl env d -- inferDecl may return a substitution
+    (e, (s2, t2)) <- infer (subst s $ extendEnv env (declName d) t) range e 
+    return (F0Let d e, (s2 `composeSubst` s, t2))
 
   F0If e1 e2 e3 -> do 
     (e1, (s1, t1)) <- infer env range e1 
@@ -195,20 +210,21 @@ infer env range = \case
   F0Literal (F0IntLiteral i) -> return (F0Literal (F0IntLiteral i), (emptySubstitution, f0IntT))
   F0Literal (F0StringLiteral s) -> return (F0Literal (F0StringLiteral s), (emptySubstitution, f0StringT))
   F0Literal (F0BoolLiteral b) -> return (F0Literal (F0BoolLiteral b), (emptySubstitution, f0BoolT))
+  F0Literal F0UnitLiteral -> return (F0Literal F0UnitLiteral, (emptySubstitution, f0UnitT))
 
   F0ExpPos start e end -> do 
     (e, inferred) <- infer env (Just (start, end)) e 
     return (F0ExpPos start e end, inferred)
 
 inferDecl :: Infer m => TypeEnvironment -> F0Declaration Symbol Maybe 
-                     -> m (F0Declaration Symbol Identity, Scheme)
+                     -> m (F0Declaration Symbol Identity, Substitution, Scheme)
 inferDecl env = \case                      
   F0Value name _ e -> do 
     (e, (s, t)) <- infer env Nothing e 
     t <- return $ subst s t 
     let scheme = generalize env t 
 
-    return (F0Value name (Identity t) e, scheme)
+    return (F0Value name (Identity t) e, s, scheme)
 
   F0Fun name args _ e -> do 
     let lambdafied = lambdafy e args 
@@ -224,7 +240,7 @@ inferDecl env = \case
     t <- return $ subst ftS t 
 
     let scheme = generalize env t 
-    return (F0Value name (Identity t) e, scheme)
+    return (F0Value name (Identity t) e, ftS, scheme)
 
   where lambdafy :: F0Expression Symbol Maybe -> [(Symbol, Maybe F0Type)] -> F0Expression Symbol Maybe
         lambdafy base = \case 
@@ -236,7 +252,7 @@ inferDecls :: Infer m => TypeEnvironment -> [F0Declaration Symbol Maybe]
 inferDecls env = \case 
   [] -> return ([], env)
   d : ds -> do 
-    (typeInfoInserted, scheme) <- inferDecl env d
+    (typeInfoInserted, _, scheme) <- inferDecl env d -- I think we can ignore the substitution here since everything else has been generalized
     env <- return $ extendEnv env (declName d) scheme 
     (symbols, env) <- inferDecls env ds 
     return (typeInfoInserted:symbols, env)

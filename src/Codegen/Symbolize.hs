@@ -7,9 +7,10 @@
 -- type is a string into one where
 -- the symbol type is able to 
 -- distinguish between shadowed variables
-module Codegen.Symbolize (symbolize, SymbolErrorType(..), Symbol(..), SymbolError(..)) where 
+module Codegen.Symbolize (symbolize, SymbolErrorType(..), Symbol(..), SymbolError(..), printSymbolError) where 
 
 import Parser.AST 
+import LibraryBindings
 
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map 
@@ -20,13 +21,22 @@ import Control.Monad.State.Strict
 -- | A symbol consists of a integer
 -- which uniquely identifies this variable
 -- and a string which represents the name the user gave
-newtype Symbol = Symbol (Int, String) deriving Show
+data Symbol = 
+    Symbol (Int, String) 
+  | NativeFunction String 
+  deriving Show
 
 instance Eq Symbol where 
   Symbol (a, _) == Symbol (b, _) = a == b 
+  NativeFunction a == NativeFunction b = a == b 
+  _ == _ = False 
 
 instance Ord Symbol where 
   compare (Symbol (a, _)) (Symbol (b, _)) = compare a b
+  compare (NativeFunction a) (NativeFunction b) = compare a b 
+  compare (NativeFunction _) (Symbol _) = LT 
+  compare (Symbol _) (NativeFunction _) = GT 
+
 
 type SymbolMap = Map String Symbol 
 data SymbolErrorType = UnboundVariable String deriving (Show, Eq)
@@ -34,6 +44,10 @@ newtype SymbolError = SymbolError (Maybe SourceRange, SymbolErrorType) deriving 
 type SymbolContext m = (MonadState Int m, MonadWriter [SymbolError] m) 
 type Symbolizer m (a :: * -> (* -> *) -> *) (b :: * -> *) = 
   SymbolContext m => SymbolMap -> Maybe SourceRange -> a String b -> m (a Symbol b)
+
+printSymbolError :: SymbolError -> String 
+printSymbolError (SymbolError (range, UnboundVariable x)) = 
+  printSourceRange range ++ ": unbound variable '" ++ x ++ "'"
 
 -- | Creates a symbol and updates the new symbol number
 mkSymbol :: SymbolContext m => String -> m Symbol 
@@ -104,8 +118,11 @@ symbolizeExpr symbolMap position = \case
   F0Identifier name -> 
     case Map.lookup name symbolMap of 
       Just symbol -> return $ F0Identifier symbol 
-      Nothing -> do 
-        tell [SymbolError (position, UnboundVariable name)]
-        return $ F0Identifier dummySymbol
+      Nothing -> 
+        case Map.lookup name libraryBindings of 
+          Just _ -> return $ F0Identifier (NativeFunction name)
+          Nothing -> do 
+            tell [SymbolError (position, UnboundVariable name)]
+            return $ F0Identifier dummySymbol
 
   -- _ -> error "symbolizeExpr: not yet implemented!"

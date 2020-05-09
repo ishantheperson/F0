@@ -55,6 +55,7 @@ data C0Expression =
     C0Box F0PrimitiveType C0Expression -- ^ allocates type and casts to void*
   | C0Unbox F0PrimitiveType C0Expression -- ^ Uncast and dereference to target type
   | C0CallClosure C0Expression C0Expression -- ^ cast closure to f0_closure*, call function pointer with closure + arg
+  | C0NativeFn String -- ^ Represents a C0 native fn 
   | C0Op F0Operator [C0Expression] -- ^ unboxes ints, performs operation, reboxes
   | C0If C0Expression C0Expression C0Expression  
 
@@ -116,6 +117,9 @@ codegenExpr env = \case
     F0IntLiteral i -> return $ C0Box F0IntType (C0Literal $ C0IntLiteral i)
     F0StringLiteral s -> return $ C0Box F0StringType (C0Literal $ C0StringLiteral s)
     F0BoolLiteral b -> return $ C0Box F0BoolType (C0Literal $ C0BoolLiteral b)
+
+  F0Identifier (NativeFunction n) -> do 
+    return $ C0NativeFn n 
 
   F0Identifier x -> do 
     return $ C0Identifier (forceLookup x env)

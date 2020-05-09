@@ -19,16 +19,21 @@ type Parser = Parsec Void String
 
 f0Decls :: Parser [F0Declaration String Maybe]
 f0Decls = catMaybes <$> many (recover (Just <$> f0Decl)) 
-  where recover = withRecovery $ \e -> do
+  where recover = id 
+          -- Recovery is right now broken since it messes up
+          -- let declarations 
+          -- (the failure to find another decl causes it to skip ahead)
+          -- Could probably be fixed by checking if the error token is "in"
+          {-withRecovery $ \e -> do
           registerParseError e
           -- Advance to next "fun" or "val"
-          someTill anySingle (void . lookAhead $ choice (reserved <$> ["fun", "val"]))
-          return Nothing 
+          someTill anySingle (void . lookAhead $ choice (reserved <$> ["fun", "val"]) <|> eof)
+          return Nothing -}
 
 f0Decl :: Parser (F0Declaration String Maybe)
 f0Decl = positioned fun <|> positioned val
-    where val = uncurry F0Value <$> (reserved "val" *> name) <*> (symbol "=" *> f0Expression)
-          fun = F0Fun <$> (reserved "fun" *> identifier) 
+    where val = uncurry F0Value <$> (try $ reserved "val" *> name) <*> (symbol "=" *> f0Expression)
+          fun = F0Fun <$> (try $ reserved "fun" *> identifier) 
                       <*> some arg 
                       <*> typeAnnotation
                       <*> (symbol "=" *> f0Expression)
@@ -48,6 +53,8 @@ f0Expression = makeExprParser (term >>= postfix) operators
         f0IntLiteral = F0Literal . F0IntLiteral <$> integer 
         f0StringLiteral = F0Literal . F0StringLiteral <$> stringLiteral
         f0BoolLiteral = F0Literal . F0BoolLiteral <$> boolLiteral 
+        f0UnitLiteral = F0Literal F0UnitLiteral <$ symbol "()"
+
         f0Ident = F0Identifier <$> identifier
         f0Let = do 
           reserved "let"
@@ -59,8 +66,8 @@ f0Expression = makeExprParser (term >>= postfix) operators
 
         boolLiteral = (True <$ reserved "true") <|> (False <$ reserved "false")
 
-        term = 
-          choice (parens f0Expression : (positioned <$> [f0Lambda, f0If, f0IntLiteral, f0StringLiteral, f0BoolLiteral, f0Let, f0Ident]))
+        term = positioned $ 
+          choice [f0Let, f0Lambda, f0If, f0UnitLiteral, f0IntLiteral, f0StringLiteral, f0BoolLiteral, f0Ident, parens f0Expression]
         postfix e = 
               positioned (functionApp e) <|> return e 
           -- <|> positioned (F0TypeAssertion e <$> (symbol ":" >> f0Type))
@@ -89,8 +96,9 @@ f0Type = makeExprParser term operators <?> "type"
               F0PrimitiveType F0IntType <$ reserved "int"
           <|> F0PrimitiveType F0StringType <$ reserved "string" 
           <|> F0PrimitiveType F0BoolType <$ reserved "bool"
+          <|> F0PrimitiveType F0UnitType <$ reserved "unit"
           <|> F0TypeVariable <$> typeVariable 
-          <|> F0TypeIdent <$> identifier 
+          -- <|> F0TypeIdent <$> identifier 
           <|> parens f0Type 
         
         operators = [[InfixR (F0Function <$ symbol "->") ]]
@@ -136,6 +144,7 @@ reservedWords = ["val",
                  "int",
                  "string",
                  "bool",
+                 "unit",
                  "let",
                  "in",
                  "end"]
