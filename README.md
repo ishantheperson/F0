@@ -45,8 +45,7 @@ val main = fib 0 1 2 20 ; 0
 
 ## Limitations
 Currently a very small subset is implemented.
-The only operations are on integers. However
-polymorphic functions are supported.
+There is no pattern matching or sum/product types.
 
 Recursion is implemented using the callstack,
 so it's possible to get a stack overflow
