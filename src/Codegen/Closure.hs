@@ -117,6 +117,7 @@ codegenExpr env = \case
     F0IntLiteral i -> return $ C0Box F0IntType (C0Literal $ C0IntLiteral i)
     F0StringLiteral s -> return $ C0Box F0StringType (C0Literal $ C0StringLiteral s)
     F0BoolLiteral b -> return $ C0Box F0BoolType (C0Literal $ C0BoolLiteral b)
+    F0UnitLiteral -> return $ C0Box F0IntType (C0Literal $ C0IntLiteral 0)
 
   F0Identifier (NativeFunction n) -> do 
     return $ C0NativeFn n 

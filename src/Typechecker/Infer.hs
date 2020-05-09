@@ -194,14 +194,14 @@ infer env range = \case
   F0OpExp _ _ -> error "infer: invalid operator combination!"
 
   F0Let d e -> do 
-    (d, s, t) <- inferDecl env d -- inferDecl may return a substitution
+    (d, s, t) <- inferDecl env range d -- inferDecl may return a substitution
     (e, (s2, t2)) <- infer (subst s $ extendEnv env (declName d) t) range e 
     return (F0Let d e, (s2 `composeSubst` s, t2))
 
   F0If e1 e2 e3 -> do 
     (e1, (s1, t1)) <- infer env range e1 
     (e2, (s2, t2)) <- infer (subst s1 env) range e2 
-    (e3, (s3, t3)) <- infer (subst s2 env) range e3 -- Should this substitute s2 `compose` s1? 
+    (e3, (s3, t3)) <- infer (subst (s2 `composeSubst` s1) env) range e3 -- Should this substitute s2 `compose` s1? 
 
     s4 <- unify range t1 f0BoolT
     s5 <- unify range t2 t3 -- Need to substitute here?
@@ -216,13 +216,13 @@ infer env range = \case
     (e, inferred) <- infer env (Just (start, end)) e 
     return (F0ExpPos start e end, inferred)
 
-inferDecl :: Infer m => TypeEnvironment -> F0Declaration Symbol Maybe 
+inferDecl :: Infer m => TypeEnvironment -> Maybe SourceRange -> F0Declaration Symbol Maybe 
                      -> m (F0Declaration Symbol Identity, Substitution, Scheme)
-inferDecl env = \case                      
+inferDecl env range = \case                      
   F0Value name _ e -> do 
-    (e, (s, t)) <- infer env Nothing e 
+    (e, (s, t)) <- infer env range e 
     t <- return $ subst s t 
-    let scheme = generalize env t 
+    let scheme = generalize (subst s env) t 
 
     return (F0Value name (Identity t) e, s, scheme)
 
@@ -232,15 +232,24 @@ inferDecl env = \case
     recursiveT <- F0TypeVariable <$> freshName 
     env <- return $ extendEnv env name (Forall [] recursiveT)
     -- Bind name to "recursiveT"
-    (e, (s, t)) <- infer env Nothing lambdafied 
-    t <- return $ subst s t 
-    recursiveT <- return $ subst s t 
+    (e, (s, t)) <- infer env range lambdafied 
+    s2 <- unify range t (subst s recursiveT)
 
-    ftS <- unify Nothing t recursiveT 
-    t <- return $ subst ftS t 
+    -- traceM (ppShow (subst s recursiveT))
+    -- traceM (ppShow s)
+    -- traceM (ppShow s2)
+    -- traceM (ppShow $ (subst (s `composeSubst` s2) recursiveT) )
 
-    let scheme = generalize env t 
-    return (F0Value name (Identity t) e, ftS, scheme)
+    -- -- t <- return $ subst s t 
+    -- -- recursiveT <- return $ subst s t 
+
+    -- -- ftS <- unify Nothing t recursiveT 
+    -- -- t <- return $ subst ftS t 
+
+    let scheme = generalize env (subst s2 $ subst s t) 
+    return (F0Value name (Identity t) e, s `composeSubst` s2, scheme)
+
+  F0DeclPos start d end -> inferDecl env (Just (start, end)) d 
 
   where lambdafy :: F0Expression Symbol Maybe -> [(Symbol, Maybe F0Type)] -> F0Expression Symbol Maybe
         lambdafy base = \case 
@@ -252,7 +261,7 @@ inferDecls :: Infer m => TypeEnvironment -> [F0Declaration Symbol Maybe]
 inferDecls env = \case 
   [] -> return ([], env)
   d : ds -> do 
-    (typeInfoInserted, _, scheme) <- inferDecl env d -- I think we can ignore the substitution here since everything else has been generalized
+    (typeInfoInserted, _, scheme) <- inferDecl env Nothing d -- I think we can ignore the substitution here since everything else has been generalized
     env <- return $ extendEnv env (declName d) scheme 
     (symbols, env) <- inferDecls env ds 
     return (typeInfoInserted:symbols, env)

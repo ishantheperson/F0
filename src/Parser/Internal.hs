@@ -88,7 +88,7 @@ f0Expression = makeExprParser (term >>= postfix) operators
                   InfixL (symbol opString *> return (\a b -> F0OpExp opConstructor [a, b])) 
         positioned p =   -- Source information for expressions can clutter up the AST a lot
                          -- so right now I am removing it 
-          F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
+            F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
 
 f0Type :: Parser F0Type
 f0Type = makeExprParser term operators <?> "type"

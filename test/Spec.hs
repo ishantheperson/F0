@@ -166,6 +166,21 @@ typeInferenceTests = describe "Type inference tests" $ do
     typecheckD "fun foo a b c = if a then b else c" (Symbol (0, "foo")) `shouldBe`
       Right (Forall ["_x3"] $ f0BoolT `F0Function` F0TypeVariable "_x3" `F0Function` (F0TypeVariable "_x3" `F0Function` F0TypeVariable "_x3"))
 
+  it "won't typecheck a function where the arguments have been applied in the wrong order" $ 
+    typecheckD "fun loop f n = if n == 0 then () else let val () = f n in loop (n - 1) f end" (Symbol (0, "loop")) `shouldSatisfy` isLeft 
+      
+  it "typechecks a higher order function with looping and using () as a name" $ 
+    typecheckD "fun loop f n = if n == 0 then () else let val () = f n in loop f (n - 1) end" (Symbol (0, "loop")) `shouldBe` 
+      Right (Forall ["_x4"] $ (f0IntT `F0Function` F0TypeVariable "_x4") `F0Function` f0IntT `F0Function` f0UnitT)
+
+  it "typechecks the factorial function" $ 
+    typecheckD "fun fact n = if n == 0 then 1 else n * fact (n - 1)" (Symbol (0, "fact")) `shouldBe`
+      Right (Forall [] $ f0IntT `F0Function` f0IntT)
+
+  it "typechecks the double loop function" $ 
+    typecheckD "fun f x = f (f x)" (Symbol (0, "f")) `shouldBe`
+      Right (Forall ["_x2"] $ F0TypeVariable "_x2" `F0Function` F0TypeVariable "_x2")
+
 main :: IO ()
 main = hspec $ do 
   describe "Parser" $ do 
