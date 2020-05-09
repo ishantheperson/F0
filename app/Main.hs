@@ -3,7 +3,6 @@ module Main where
 
 import Control.Monad 
 
-import System.IO 
 import System.Environment
 import System.FilePath.Posix
 

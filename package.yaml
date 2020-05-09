@@ -29,12 +29,14 @@ dependencies:
 - hspec
 - optparse-applicative
 - filepath
+- process
+- directory
 
 library:
   source-dirs: src
 
 executables:
-  f0-exe:
+  f0:
     main:                Main.hs
     source-dirs:         app
     ghc-options:

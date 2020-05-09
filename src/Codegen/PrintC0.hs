@@ -86,6 +86,7 @@ data PrintC0State = PrintC0State
   } 
   deriving Show
 
+initialPrintC0State :: PrintC0State
 initialPrintC0State = PrintC0State 
   {
     uniqueCount = 0,

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 20c788281861da36fd8a1201683cf4d78c683a4bd77b43c9a955f434dd69c08d
+-- hash: 45444a390adfe97268b3d4f46fcf5174b7a027030e86045487e1858f04f1b1e8
 
 name:           f0
 version:        0.1.0.0
@@ -42,6 +42,7 @@ library
   build-depends:
       base >=4.7 && <5
     , containers
+    , directory
     , filepath
     , hspec
     , megaparsec
@@ -49,9 +50,10 @@ library
     , optparse-applicative
     , parser-combinators
     , pretty-show
+    , process
   default-language: Haskell2010
 
-executable f0-exe
+executable f0
   main-is: Main.hs
   other-modules:
       Paths_f0
@@ -61,6 +63,7 @@ executable f0-exe
   build-depends:
       base >=4.7 && <5
     , containers
+    , directory
     , f0
     , filepath
     , hspec
@@ -69,6 +72,7 @@ executable f0-exe
     , optparse-applicative
     , parser-combinators
     , pretty-show
+    , process
   default-language: Haskell2010
 
 test-suite f0-test
@@ -82,6 +86,7 @@ test-suite f0-test
   build-depends:
       base >=4.7 && <5
     , containers
+    , directory
     , f0
     , filepath
     , hspec
@@ -90,4 +95,5 @@ test-suite f0-test
     , optparse-applicative
     , parser-combinators
     , pretty-show
+    , process
   default-language: Haskell2010

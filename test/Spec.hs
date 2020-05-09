@@ -1,10 +1,17 @@
 import Test.Hspec
 
+import System.Exit
+import System.Directory
+import System.Process 
+import System.FilePath.Posix
+
 import Parser.AST 
 import Parser.ASTUtil
 import Parser.Internal 
 
 import Codegen.Symbolize
+import Codegen.Closure
+import Codegen.PrintC0
 
 import Typechecker.Infer
 
@@ -39,6 +46,43 @@ forceDecls s = map removePositionInfo $ fromRight (error "forceDecls: Parsing fa
 
 forceSymbols :: String -> [F0Declaration Symbol Maybe]
 forceSymbols s = fromRight (error "typecheckE: Symbolization failed") $ symbolize $ forceDecls s 
+
+moveToTestDir :: IO ()
+moveToTestDir = setCurrentDirectory "test/testcases"
+
+-- | Takes a path to a .sml file in the testcases directory.
+-- There should also be a .txt file with the expected stdout 
+integrateTest :: FilePath -> Expectation 
+integrateTest inputFile = do 
+    text <- readFile inputFile
+  
+    parseTree <- case runParser (sc *> f0Decls <* eof) inputFile text of 
+                  Left errors -> fail "Parsing failed"
+
+                  Right ast -> return ast 
+
+    -- Insert main value (_main)
+    parseTree <- return $ parseTree ++ [F0Value "_main" (Just $ F0PrimitiveType F0IntType) (F0Identifier "main")]
+
+    symbolized <- case symbolize parseTree of 
+                    Left errors -> fail "Symbolization failed"
+                    Right ast -> return ast 
+
+    (typeAST, typeEnv) <- case typecheckDecls emptyEnv symbolized of 
+                            Left errors -> fail "Typechecking failed"
+                            Right results -> return results 
+
+    let e = programToExpression typeAST 
+        c0Program = runCodegen (codegenExpr [] e)
+        outputFileName = dropExtension inputFile ++ ".c1"
+        expectationFileName = dropExtension inputFile ++ ".txt"
+
+    writeFile outputFileName (outputProgram c0Program)
+    (status, stdout, stderr) <- readProcessWithExitCode "cc0" ["-x", outputFileName] ""
+
+    expected <- readFile expectationFileName
+
+    stdout `shouldBe` expected 
 
 parseExpTests, parseTypeTests, parseDeclTests :: SpecWith ()
 parseExpTests = describe "Expression parsing" $ do 
@@ -189,16 +233,30 @@ typeInferenceTests = describe "Type inference tests" $ do
     typecheckD "fun find p n = if n == 0 then 0 else if p (4 * n) then n else find p (n - 1)" (Symbol (0, "find")) `shouldBe`
       Right (Forall [] $ (f0IntT `F0Function` f0BoolT) `F0Function` f0IntT `F0Function` f0IntT)
 
+integrationTests :: SpecWith () 
+integrationTests = do 
+  it "correctly calculates 10!" $ 
+    integrateTest "higher_order_fact.sml" 
+
+  it "correctly calculates Fibonacci numbers" $
+    integrateTest "fib.sml"
+
+  it "correctly executes the find testcase" $ 
+    integrateTest "find.sml"
+
 main :: IO ()
 main = hspec $ do 
-  describe "Parser" $ do 
+  context "Parser" $ do 
     parseExpTests
     parseTypeTests
     parseDeclTests 
 
-  describe "Elaboration" $ do 
+  context "Elaboration" $ do 
     freeVarsTests
     symbolizerTests
 
-  describe "Typechecking/inference" $ do 
+  context "Typechecking/inference" $ do 
     typeInferenceTests 
+
+  beforeAll_ moveToTestDir $ context "Codegeneration testing via CC0" $ do 
+    integrationTests
