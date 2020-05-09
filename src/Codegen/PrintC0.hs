@@ -290,16 +290,5 @@ resolveRefClosure closureName = \case
   C0RecursiveReference -> "(void*)" ++ closureName 
   other -> resolveRefIdent other 
 
-printOp :: F0Operator -> String 
-printOp = \case 
-  Equals -> "=="
-  Plus -> "+"
-  Minus -> "-"
-  Times -> "*"
-  Not -> "-"
-  LessThan -> "<"
-  And -> "&&"
-  Or -> "||"
-
 spacesPerIndent :: Int 
 spacesPerIndent = 4

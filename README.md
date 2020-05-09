@@ -17,22 +17,30 @@ Available options:
 % cc0 file.c1 
 ```
 
+Supported features:
+ - `print`, `printint`, `println`
+ - Closures/polymorphism/higher order functions
+ - Type inference
+ - `let` expressions
+ - Line comments with `--` 
+ - Block comments with `(*` 
+ - See `testcases/` or `test/Spec.hs` for examples
+
 ## Example
 
 ```
--- Line comments are supported 
--- Currently the only primitive types are int, string, and bool
--- All functions will have their types inferred to the most
--- general type possible
+fun fib a b i stop =
+  if i == stop then ()
+  else print "fib(";
+       printint i;
+       print ") = ";
+       printint (a + b);
+       print "\n";
+       fib b (a + b) (i + 1) stop
 
-fun eq_if a b c d = if a == b then c true else d true (* Using true to represent unit *)
-fun ifz a c d = eq_if a 0 c d
-
-fun fact n = ifz n (fn b => 1) (fn b => n * fact (n-1))
-
--- All programs must have a value
--- called main of type int 
-val main = fact 10
+-- main always needs to return int
+-- it is returned from main in the C1 program
+val main = fib 0 1 2 20 ; 0
 ```
 
 ## Limitations

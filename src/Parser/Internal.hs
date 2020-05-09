@@ -75,18 +75,19 @@ f0Expression = makeExprParser (term >>= postfix) operators
         functionApp e = foldl F0App e <$> some term 
 
         operators = [[prefixOp "!" Not],
-                     [binOp "*" Times],
-                     [binOp "+" Plus,
-                      binOp "-" Minus],
-                     [binOp "<" LessThan],
-                     [binOp "==" Equals],
-                     [binOp "&&" And],
-                     [binOp "||" Or],
+                     [binOp Times,
+                      binOp Divide],
+                     [binOp Plus,
+                      binOp Minus],
+                     [binOp LessThan],
+                     [binOp Equals],
+                     [binOp And],
+                     [binOp Or],
                      [semicolon]]
           where prefixOp opString opConstructor = 
                   Prefix (symbol opString *> return (\a -> F0OpExp opConstructor [a]))
-                binOp opString opConstructor = 
-                  InfixL (symbol opString *> return (\a b -> F0OpExp opConstructor [a, b])) 
+                binOp opConstructor = 
+                  InfixL (symbol (printOp opConstructor) *> return (\a b -> F0OpExp opConstructor [a, b])) 
 
                 semicolon = 
                   InfixR (symbol ";" *> return (\a b -> F0Let (F0Value "_discard" Nothing a) b))
