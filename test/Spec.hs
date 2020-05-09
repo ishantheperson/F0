@@ -110,8 +110,8 @@ parseDeclTests = describe "Declaration parsing" $ do
   it "parses val binding to int literal without type annotation" $
     parseDecl "val x = 3" `shouldBe` Right [F0Value "x" Nothing (f0Int 3)]
 
-  it "parses val binding to int literal with type annotation" $ 
-    parseDecl "val x : int = 3" `shouldBe` Right [F0Value "x" (Just (f0IntT)) (f0Int 3)]
+  -- it "parses val binding to int literal with type annotation" $ 
+  --   parseDecl "val x : int = 3" `shouldBe` Right [F0Value "x" (Just (f0IntT)) (f0Int 3)]
 
   it "does not parse fun decl without arguments" $ 
     parseDecl "fun foo = 3" `shouldSatisfy` isLeft
@@ -178,10 +178,10 @@ typeInferenceTests = do
       F0TypeVariable "a" `F0Function` (F0TypeVariable "b" `F0Function` F0TypeVariable "a")
     )
 
-  it "respects type annotation on a lambda" $ 
-    typecheckE "fn x => fn y : int => x" `shouldBe` Right (
-      F0TypeVariable "a" `F0Function` (f0IntT `F0Function` F0TypeVariable "a")
-    )
+  -- it "respects type annotation on a lambda" $ 
+  --   typecheckE "fn x => fn y : int => x" `shouldBe` Right (
+  --     F0TypeVariable "a" `F0Function` (f0IntT `F0Function` F0TypeVariable "a")
+  --   )
 
   -- it "distinguishes different given type variables" $ 
   --   typecheckE "fn (x: 'a) => (x: 'b)" `shouldSatisfy` isLeft 
@@ -247,6 +247,9 @@ integrationTests = do
 
   it "correctly executes the find testcase" $ 
     integrateTest "find.sml"
+
+  it "correctly executed the uncurred addition testcase" $ 
+    integrateTest "tuple_addition.sml"
 
 main :: IO ()
 main = hspec $ do 
