@@ -79,13 +79,13 @@ parseDeclTests = describe "Declaration parsing" $ do
 freeVarsTests :: SpecWith ()
 freeVarsTests = describe "Free vars of expressions" $ do 
   it "reports a lone identifier as free" $ 
-    freeVariables Set.empty (F0Identifier "x") == Set.fromList ["x"]
+    freeVariables (F0Identifier "x") `shouldBe` Set.fromList ["x"]
 
   it "reports a variable free when it is bound in another lambda" $ 
-    freeVariables Set.empty (F0App (F0Lambda "x" Nothing (F0Identifier "x")) (F0Identifier "x")) == Set.fromList ["x"]
+    freeVariables (F0App (F0Lambda "x" Nothing (F0Identifier "x")) (F0Identifier "x")) `shouldBe` Set.fromList ["x"]
 
   it "reports free variable inside a lambda" $ 
-    freeVariables Set.empty (F0App (F0Lambda "x" Nothing (F0Identifier "y")) (F0Identifier "z")) == Set.fromList ["y", "z"]
+    freeVariables (F0App (F0Lambda "x" Nothing (F0Identifier "y")) (F0Identifier "z")) `shouldBe` Set.fromList ["y", "z"]
 
 symbolizerTests :: SpecWith ()
 symbolizerTests = describe "Symbol conversion tests" $ do 

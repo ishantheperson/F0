@@ -47,6 +47,10 @@ data F0Operator =
   | Minus
   | Times 
   | Equals
+  | LessThan
+  | Not 
+  | And 
+  | Or
   deriving (Show, Eq)  
 
 type TypeVariable = String 

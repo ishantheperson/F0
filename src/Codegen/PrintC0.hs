@@ -18,6 +18,7 @@
 module Codegen.PrintC0 where 
 
 import Parser.AST 
+import Parser.ASTUtil 
 import Codegen.Closure 
 import Codegen.Symbolize 
 
@@ -40,9 +41,9 @@ generalDecls = unlines
   ]
 
 boxingHelpers :: String
-boxingHelpers = unlines $ mkBoxingHelpers =<< [C0IntType, C0StringType, C0BoolType]
-  where mkBoxingHelpers :: C0Type -> [String] 
-        mkBoxingHelpers (printType -> t) = 
+boxingHelpers = unlines $ mkBoxingHelpers =<< [F0IntType, F0StringType, F0BoolType]
+  where mkBoxingHelpers :: F0PrimitiveType -> [String] 
+        mkBoxingHelpers (printPrimitiveType -> t) = 
           [ printf "void* f0_box_%s(%s x) { %s* p = alloc(%s); *p = x; return (void*)p; }" t t t t 
           , printf "%s f0_unbox_%s(void* p) { return *(%s*)p; }\n" t t t]
 
@@ -114,23 +115,30 @@ outputExpr = \case
   C0Box t e -> do 
     unboxed <- outputExpr e 
     result <- freshName
-    outputLine $ printf "void* %s = f0_box_%s(%s);" result (printType t) unboxed
+    outputLine $ printf "void* %s = f0_box_%s(%s);" result (printPrimitiveType t) unboxed
     return result 
 
   C0Unbox t e -> do 
     boxed <- outputExpr e 
     result <- freshName
-    outputLine $ printf "%s %s = f0_unbox_%s(%s);" (printType t) result (printType t) boxed
+    outputLine $ printf "%s %s = f0_unbox_%s(%s);" (printPrimitiveType t) result (printPrimitiveType t) boxed
     return result 
 
-  C0Op op e1 e2 -> do 
+  C0Op Not [e1] -> do 
+    a <- outputExpr e1 
+    result <- freshName
+
+    outputLine $ printf "bool %s = !(%s);" result a 
+    return result 
+
+  C0Op op [e1, e2] -> do 
     a <- outputExpr e1 
     b <- outputExpr e2 
 
     result <- freshName 
 
-    let t = if op == Equals then C0BoolType else C0IntType
-    outputLine $ printf "%s %s = %s %s %s;" (printType t) result a (printOp op) b 
+    let t = operatorOutput op 
+    outputLine $ printf "%s %s = %s %s %s;" (printPrimitiveType t) result a (printOp op) b 
     return result 
 
   C0Identifier ref -> do 
@@ -142,12 +150,12 @@ outputExpr = \case
   C0Literal l -> do 
     result <- freshName 
     let (t, x) = case l of 
-                   C0IntLiteral i -> (C0IntType, show i)
-                   C0StringLiteral s -> (C0StringType, show s)
-                   C0BoolLiteral True -> (C0BoolType, "true")
-                   C0BoolLiteral False -> (C0BoolType, "false")
+                   C0IntLiteral i -> (F0IntType, show i)
+                   C0StringLiteral s -> (F0StringType, show s)
+                   C0BoolLiteral True -> (F0BoolType, "true")
+                   C0BoolLiteral False -> (F0BoolType, "false")
 
-    outputLine $ printf "%s %s = %s;" (printType t) result x 
+    outputLine $ printf "%s %s = %s;" (printPrimitiveType t) result x 
     return result 
 
   C0If e1 e2 e3 -> do 
@@ -256,19 +264,16 @@ resolveRefClosure closureName = \case
   C0RecursiveReference -> "(void*)" ++ closureName 
   other -> resolveRefIdent other 
 
-printType :: C0Type -> String 
-printType = \case 
-  C0IntType -> "int"
-  C0StringType -> "string"
-  C0BoolType -> "bool"
-  C0ClosureType -> "struct f0_closure*"
-
 printOp :: F0Operator -> String 
 printOp = \case 
   Equals -> "=="
   Plus -> "+"
   Minus -> "-"
   Times -> "*"
+  Not -> "-"
+  LessThan -> "<"
+  And -> "&&"
+  Or -> "||"
 
 maxOrZero [] = 0
 maxOrZero xs = maximum xs 

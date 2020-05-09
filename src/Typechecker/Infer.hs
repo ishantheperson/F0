@@ -163,16 +163,21 @@ infer env range = \case
     s3 <- unify range (subst s2 t1) (F0Function t2 tv)
     return (F0App e1 e2, (s3 `composeSubst` s2 `composeSubst` s1, subst s3 tv))
 
+  F0OpExp Not [e1] -> do 
+    (e1, (s1, t1)) <- infer env range e1 
+    s2 <- unify range t1 f0BoolT
+    return (F0OpExp Not [e1], (s2 `composeSubst` s1, f0BoolT))
+
   F0OpExp op [e1, e2] -> do 
     (e1, (s1, t1)) <- infer env range e1 
     (e2, (s2, t2)) <- infer (subst s1 env) range e2 
 
     tv <- F0TypeVariable <$> freshName
 
-    s3 <- unify range (t1 `F0Function` t2 `F0Function` tv) (f0IntT `F0Function` f0IntT `F0Function` (if op == Equals then f0BoolT else f0IntT))
+    s3 <- unify range (t1 `F0Function` t2 `F0Function` tv) (operatorAsFunctionType op)
     return (F0OpExp op [e1, e2], (s1 `composeSubst` s2 `composeSubst` s3, subst s3 tv))
 
-  F0OpExp _ _ -> error "infer: Currently all operators should only have two operands!"
+  F0OpExp _ _ -> error "infer: invalid operator combination!"
 
   F0Let d e -> do 
     (d, t) <- inferDecl env d 

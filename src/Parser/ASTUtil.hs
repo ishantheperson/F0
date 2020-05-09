@@ -22,7 +22,7 @@ declName = \case
 -- and returns the free variables of an expression and their types
 freeVariables :: Ord s => F0Expression s f -> Set s 
 freeVariables = \case
-  F0Lambda name t e -> Set.singleton name <> freeVariables e 
+  F0Lambda name t e -> freeVariables e 
   F0App e1 e2 -> freeVariables e1 <> freeVariables e2 
   F0Identifier x -> Set.singleton x 
   F0Literal _ -> Set.empty 
@@ -105,3 +105,35 @@ f0IntT, f0StringT, f0BoolT :: F0Type
 f0IntT = F0PrimitiveType F0IntType
 f0StringT = F0PrimitiveType F0StringType
 f0BoolT = F0PrimitiveType F0BoolType
+
+operatorAsFunctionType :: F0Operator -> F0Type 
+operatorAsFunctionType = \case 
+  Not -> f0BoolT `F0Function` f0BoolT
+  other -> let input = F0PrimitiveType $ operatorInput other 
+               output = F0PrimitiveType $ operatorOutput other 
+           in input `F0Function` input `F0Function` output 
+
+operatorInput, operatorOutput :: F0Operator -> F0PrimitiveType
+operatorInput = \case 
+  Plus -> F0IntType 
+  Minus -> F0IntType 
+  Times -> F0IntType 
+
+  Equals -> F0IntType
+  LessThan -> F0IntType
+
+  Not -> F0BoolType
+  And -> F0BoolType
+  Or -> F0BoolType
+
+operatorOutput = \case 
+  Plus -> F0IntType 
+  Minus -> F0IntType 
+  Times -> F0IntType 
+
+  Equals -> F0BoolType
+  LessThan -> F0BoolType
+
+  Not -> F0BoolType
+  And -> F0BoolType
+  Or -> F0BoolType

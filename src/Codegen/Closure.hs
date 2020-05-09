@@ -37,12 +37,12 @@ import Data.Functor.Identity
 import GHC.Stack 
 import Debug.Trace 
 
-data C0Type = 
-    C0IntType -- ^ int
-  | C0StringType -- ^ string 
-  | C0BoolType -- ^ bool
-  | C0ClosureType -- ^ struct f0_closure*. Cannot be used by user code 
-  deriving (Show, Eq)
+-- Using F0PrimitiveType instead 
+-- data C0Type = 
+--     C0IntType -- ^ int
+--    C0StringType -- ^ string 
+--    C0BoolType -- ^ bool
+--   deriving (Show, Eq)
 
 data C0VariableReference = 
     C0ArgumentReference -- ^ This is the function's argument
@@ -52,10 +52,10 @@ data C0VariableReference =
   deriving (Show, Eq)
 
 data C0Expression = 
-    C0Box C0Type C0Expression -- ^ allocates type and casts to void*
-  | C0Unbox C0Type C0Expression -- ^ Uncast and dereference to target type
+    C0Box F0PrimitiveType C0Expression -- ^ allocates type and casts to void*
+  | C0Unbox F0PrimitiveType C0Expression -- ^ Uncast and dereference to target type
   | C0CallClosure C0Expression C0Expression -- ^ cast closure to f0_closure*, call function pointer with closure + arg
-  | C0Op F0Operator C0Expression C0Expression -- ^ unboxes ints, performs operation, reboxes
+  | C0Op F0Operator [C0Expression] -- ^ unboxes ints, performs operation, reboxes
   | C0If C0Expression C0Expression C0Expression  
 
   -- | Turning a function into a value. The int identifies which function (as lambdas for example are unnamed)
@@ -113,9 +113,9 @@ codegenExpr env = \case
   F0ExpPos _ e _ -> codegenExpr env e 
   F0TypeAssertion e _ -> codegenExpr env e 
   F0Literal l -> case l of 
-    F0IntLiteral i -> return $ C0Box C0IntType (C0Literal $ C0IntLiteral i)
-    F0StringLiteral s -> return $ C0Box C0StringType (C0Literal $ C0StringLiteral s)
-    F0BoolLiteral b -> return $ C0Box C0BoolType (C0Literal $ C0BoolLiteral b)
+    F0IntLiteral i -> return $ C0Box F0IntType (C0Literal $ C0IntLiteral i)
+    F0StringLiteral s -> return $ C0Box F0StringType (C0Literal $ C0StringLiteral s)
+    F0BoolLiteral b -> return $ C0Box F0BoolType (C0Literal $ C0BoolLiteral b)
 
   F0Identifier x -> do 
     return $ C0Identifier (forceLookup x env)
@@ -124,11 +124,15 @@ codegenExpr env = \case
     e <- codegenExpr env e2 
     return $ C0CallClosure f e 
 
-  F0OpExp op [e1, e2] -> do 
+  F0OpExp Not [e1] -> do 
     a <- codegenExpr env e1 
+    return $ C0Box F0BoolType $ C0Op Not [C0Unbox F0BoolType a]
+
+  F0OpExp op [e1, e2] -> do 
+    a <- codegenExpr env e1
     b <- codegenExpr env e2 
 
-    return $ C0Box (if op == Equals then C0BoolType else C0IntType) $ C0Op op (C0Unbox C0IntType a) (C0Unbox C0IntType b)
+    return $ C0Box (operatorOutput op) $ C0Op op [C0Unbox (operatorInput op) a, C0Unbox (operatorInput op) b]
 
   F0OpExp _ _ -> error "codegenExpr: All operators should only have 2 operands at present"
 
@@ -137,7 +141,7 @@ codegenExpr env = \case
     trueBranch <- codegenExpr env e2 
     falseBranch <- codegenExpr env e3 
 
-    return $ C0If (C0Unbox C0BoolType test) trueBranch falseBranch 
+    return $ C0If (C0Unbox F0BoolType test) trueBranch falseBranch 
 
   F0Let (F0Value name _ e) letBody -> do 
     -- Could check if the value is a function before inserting itself into the environment
@@ -170,7 +174,8 @@ codegenExpr env = \case
                         case lookup x env of 
                           -- If it is not in the environment
                           -- Then it must be bound later in this expression
-                          Nothing -> resolveVars closureIndex newFunctionEnv definedClosure xs 
+                          -- This should be unreachable
+                          Nothing -> undefined -- resolveVars closureIndex newFunctionEnv definedClosure xs 
                           Just ref -> 
                             resolveVars (closureIndex + 1) 
                                         ((x, C0ClosureReference closureIndex) : newFunctionEnv)

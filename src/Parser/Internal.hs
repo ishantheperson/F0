@@ -67,12 +67,18 @@ f0Expression = makeExprParser (term >>= postfix) operators
 
         functionApp e = foldl F0App e <$> some term 
 
-        operators = [[binOp "*" Times],
+        operators = [[prefixOp "!" Not],
+                     [binOp "*" Times],
                      [binOp "+" Plus,
                       binOp "-" Minus],
-                     [binOp "==" Equals]]
-          where binOp opString opConstructor = 
-                  InfixL (symbol opString >> return (\a b -> F0OpExp opConstructor [a, b])) 
+                     [binOp "<" LessThan],
+                     [binOp "==" Equals],
+                     [binOp "&&" And],
+                     [binOp "||" Or]]
+          where prefixOp opString opConstructor = 
+                  Prefix (symbol opString *> return (\a -> F0OpExp opConstructor [a]))
+                binOp opString opConstructor = 
+                  InfixL (symbol opString *> return (\a b -> F0OpExp opConstructor [a, b])) 
         positioned p = p  -- Source information for expressions can clutter up the AST a lot
                          -- so right now I am removing it 
           -- F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
