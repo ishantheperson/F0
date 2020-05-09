@@ -29,6 +29,11 @@ freeVariables = \case
   F0OpExp _ es -> Set.unions (freeVariables <$> es)
   F0ExpPos _ e _ -> freeVariables e 
   F0If e1 e2 e3 -> Set.unions (freeVariables <$> [e1, e2, e3])
+  F0Let d e -> freeVariables (exprFromDecl d) <> freeVariables e 
+  where exprFromDecl = \case 
+          F0Value _ _ e -> e 
+          F0Fun _ _ _ e -> e 
+          F0DeclPos _ d _ -> exprFromDecl d 
 
 class TypeSubstitutable a where 
   subst :: Substitution -> a -> a 
