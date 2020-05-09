@@ -106,7 +106,8 @@ f0Type = makeExprParser term operators <?> "type"
 
 -- | Parses a name and maybe a type assertion with it
 name :: Parser (String, Maybe F0Type)
-name = (,) <$> identifier <*> typeAnnotation <|> parens name
+name = unitName <|> ((,) <$> identifier <*> typeAnnotation <|> parens name)
+  where unitName = ("_unit", Just $ F0PrimitiveType F0UnitType) <$ symbol "()"
 
 typeAnnotation :: Parser (Maybe F0Type)
 typeAnnotation = optional (symbol ":" *> f0Type) <?> "type annotation"
