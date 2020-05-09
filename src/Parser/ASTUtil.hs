@@ -3,6 +3,8 @@ module Parser.ASTUtil where
 
 import Parser.AST 
 
+import Data.List (intercalate)
+
 import Data.Set (Set)
 import qualified Data.Set as Set 
 
@@ -51,11 +53,13 @@ instance TypeSubstitutable F0Type where
   subst s = \case 
     t@(F0TypeVariable a) -> Map.findWithDefault t a s 
     F0Function a b -> subst s a `F0Function` subst s b 
+    F0TupleType ts -> F0TupleType (subst s <$> ts)
     t -> t 
 
   freeTypeVariables = \case 
     F0TypeVariable a -> Set.singleton a 
     F0Function a b -> freeTypeVariables a <> freeTypeVariables b 
+    F0TupleType ts -> Set.unions (freeTypeVariables <$> ts)
     _ -> Set.empty     
 
 normalizeSubst :: TypeSubstitutable a => a -> Substitution
@@ -81,6 +85,7 @@ printType' = \case
   F0TypeVariable a -> "'" ++ a 
   F0Function a@(F0Function _ _) b -> printf "(%s) -> %s" (printType' a) (printType' b) 
   F0Function a b -> printf "%s -> %s" (printType' a) (printType' b) 
+  F0TupleType ts -> "(" ++ intercalate ", " (map printType' ts) ++ ")"
 
 printPrimitiveType, printPrimitiveTypeC0 :: F0PrimitiveType -> String 
 printPrimitiveType = \case 

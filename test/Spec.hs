@@ -233,6 +233,10 @@ typeInferenceTests = describe "Type inference tests" $ do
     typecheckD "fun find p n = if n == 0 then 0 else if p (4 * n) then n else find p (n - 1)" (Symbol (0, "find")) `shouldBe`
       Right (Forall [] $ (f0IntT `F0Function` f0BoolT) `F0Function` f0IntT `F0Function` f0IntT)
 
+  it "uses constraints of a branch" $ 
+    typecheckD "fun foo a b = if true then a else b" (Symbol (0, "foo")) `shouldBe`
+      Right (Forall ["_x1"] $ F0TypeVariable "_x1" `F0Function` F0TypeVariable "_x1" `F0Function` F0TypeVariable "_x1")
+
 integrationTests :: SpecWith () 
 integrationTests = do 
   it "correctly calculates 10!" $ 

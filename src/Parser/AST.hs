@@ -27,10 +27,10 @@ data F0Expression symbol typeInfo =
     F0Lambda symbol (typeInfo F0Type) (F0Expression symbol typeInfo) -- ^ fn x (: t) => etc 
   | F0App (F0Expression symbol typeInfo) (F0Expression symbol typeInfo) -- ^ e1 e2 
   | F0Let (F0Declaration symbol typeInfo) (F0Expression symbol typeInfo) -- ^ let decl in e end. Multiple decls become nested lets
-  -- If could be an operator 
   | F0If (F0Expression symbol typeInfo) (F0Expression symbol typeInfo) (F0Expression symbol typeInfo) -- ^ if e1 then e2 else e3 
   | F0Literal F0Literal 
   | F0Identifier symbol  
+  | F0Tuple [F0Expression symbol typeInfo]
   | F0TypeAssertion (F0Expression symbol typeInfo) F0Type -- Removed since type inference is buggy with this
   | F0OpExp F0Operator [F0Expression symbol typeInfo] -- ^ arithmetic ops, comparison ops, etc. 
   | F0ExpPos SourcePos (F0Expression symbol typeInfo) SourcePos -- ^ Start, Expression, End 
@@ -67,6 +67,7 @@ data F0Type =
   | F0TypeIdent String 
   | F0TypeVariable TypeVariable 
   | F0Function F0Type F0Type 
+  | F0TupleType [F0Type]
   deriving (Show, Eq)
 
 infixr `F0Function`

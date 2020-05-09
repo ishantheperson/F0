@@ -52,7 +52,7 @@ f0Expression = makeExprParser (term >>= postfix) operators
                     <*> (reserved "else" *> f0Expression)
         f0IntLiteral = F0Literal . F0IntLiteral <$> integer 
         f0StringLiteral = F0Literal . F0StringLiteral <$> stringLiteral
-        f0BoolLiteral = F0Literal . F0BoolLiteral <$> boolLiteral 
+        f0BoolLiteral = F0Literal . F0BoolLiteral <$> ((True <$ reserved "true") <|> (False <$ reserved "false")) 
         f0UnitLiteral = F0Literal F0UnitLiteral <$ symbol "()"
 
         f0Ident = F0Identifier <$> identifier
@@ -64,10 +64,16 @@ f0Expression = makeExprParser (term >>= postfix) operators
           reserved "end"
           return $ foldr F0Let e decls 
 
-        boolLiteral = (True <$ reserved "true") <|> (False <$ reserved "false")
+        f0Tuple = do 
+          symbol "("
+          elems <- sepBy1 f0Expression (symbol ",")
+          symbol ")"
+          return $ case elems of 
+                     [x] -> x -- Don't allow tuple of one element
+                     _ -> F0Tuple elems 
 
         term = positioned $ 
-          choice [f0Let, f0Lambda, f0If, f0UnitLiteral, f0IntLiteral, f0StringLiteral, f0BoolLiteral, f0Ident, parens f0Expression]
+          choice [f0Let, f0Lambda, f0If, f0UnitLiteral, f0IntLiteral, f0StringLiteral, f0BoolLiteral, f0Ident, f0Tuple]
         postfix e = 
               positioned (functionApp e) <|> return e 
           -- <|> positioned (F0TypeAssertion e <$> (symbol ":" >> f0Type))
@@ -93,8 +99,9 @@ f0Expression = makeExprParser (term >>= postfix) operators
                   InfixR (symbol ";" *> return (\a b -> F0Let (F0Value "_discard" Nothing a) b))
         positioned p =   -- Source information for expressions can clutter up the AST a lot
                          -- so right now I am removing it 
-            F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
+            p -- F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
 
+-- Basically unused
 f0Type :: Parser F0Type
 f0Type = makeExprParser term operators <?> "type"
   where term =  

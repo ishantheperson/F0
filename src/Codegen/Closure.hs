@@ -2,17 +2,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE LambdaCase #-}
 {-|
-  ```c
-  typedef void* f0_function(struct f0_closure* f0_closure, void* arg);
-  struct f0_closure {
-    f0_function* f;
-    void*[] closure;
-  };
-
-  int f0_unbox_int(void* p) { return *(int*)p; }
-  void* f0_box_int(int x) { int* p = alloc(int); *p = x; return (void*)p; }
-  ```
-
   All lambdas are promoted to "real functions".
   All original top level bindings in the program are
   moved to the main() function and are now closures
@@ -116,6 +105,7 @@ codegenExpr env = \case
 
   F0Identifier x -> do 
     return $ C0Identifier (forceLookup x env)
+
   F0App e1 e2 -> do 
     f <- codegenExpr env e1 
     e <- codegenExpr env e2 

@@ -2,6 +2,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Typechecker.Infer where 
 
 import Parser.AST 
@@ -83,6 +84,7 @@ instance TypeSubstitutable (F0Expression Symbol Identity) where
     F0TypeAssertion e t -> F0TypeAssertion (subst s e) (subst s t)
     F0ExpPos start e end -> F0ExpPos start (subst s e) end 
     F0Let d e -> F0Let d (subst s e)
+    F0Tuple es -> F0Tuple (subst s es)
     other -> other 
 
   freeTypeVariables = \case 
@@ -93,6 +95,7 @@ instance TypeSubstitutable (F0Expression Symbol Identity) where
     F0TypeAssertion e t -> freeTypeVariables t <> freeTypeVariables e
     F0ExpPos start e end -> freeTypeVariables e 
     F0Let d e -> freeTypeVariables e 
+    F0Tuple es -> Set.unions (freeTypeVariables <$> es)
     other -> Set.empty  
 
 -- | There is no way we can unify a ~ b if a appears in b
@@ -108,6 +111,9 @@ unify range (a `F0Function` b) (c `F0Function` d) = do
   s1 <- unify range a c 
   s2 <- unify range (subst s1 b) (subst s1 d)
   return $ s1 `composeSubst` s2 
+unify range (F0TupleType t1s) (F0TupleType t2s) = do 
+  s1 <- foldM (\s (t1, t2) -> do s' <- unify range t1 t2; return $ s' `composeSubst` s) emptySubstitution (zip t1s t2s)
+  return s1 
 unify range t1 t2 = do 
   tell [(range, Mismatch t1 t2)]
   return emptySubstitution 
@@ -142,8 +148,8 @@ lookupVar (TypeEnvironment env) v =
           return (emptySubstitution, t)
         _ -> error $ "Unexpected unbound variable (should've been found in symbolization): " ++ show v 
 
-infer :: Infer m => TypeEnvironment -> Maybe SourceRange -> F0Expression Symbol Maybe 
-                 -> m (F0Expression Symbol Identity, (Substitution, F0Type)) 
+infer :: forall m. Infer m => TypeEnvironment -> Maybe SourceRange -> F0Expression Symbol Maybe 
+                           -> m (F0Expression Symbol Identity, (Substitution, F0Type)) 
 infer env range = \case 
   F0Identifier x -> do 
     (s, t) <- lookupVar env x
@@ -192,6 +198,18 @@ infer env range = \case
     return (F0OpExp op [e1, e2], (s1 `composeSubst` s2 `composeSubst` s3, subst s3 tv))
 
   F0OpExp _ _ -> error "infer: invalid operator combination!"
+
+  F0Tuple es -> do 
+    (s, ts, es) <- inferMany emptySubstitution es
+    return (F0Tuple es, (s, subst s (F0TupleType ts)))
+
+    where inferMany :: Infer m => Substitution -> [F0Expression Symbol Maybe] 
+                               -> m (Substitution, [F0Type], [F0Expression Symbol Identity])
+          inferMany s [] = return (s, [], [])
+          inferMany s (e:es) = do 
+            (s1, ts, es) <- inferMany s es 
+            (e, (s2, t)) <- infer (subst s1 env) range e 
+            return (s2 `composeSubst` s1, t:ts, e:es) 
 
   F0Let d e -> do 
     (d, s, t) <- inferDecl env range d -- inferDecl may return a substitution

@@ -118,6 +118,10 @@ symbolizeExpr symbolMap position = \case
     ~[e1, e2, e3] <- mapM (symbolizeExpr symbolMap position) [e1, e2, e3]
     return $ F0If e1 e2 e3 
 
+  F0Tuple es -> do 
+    es <- mapM (symbolizeExpr symbolMap position) es 
+    return $ F0Tuple es 
+
   F0Identifier name -> 
     case Map.lookup name symbolMap of 
       Just symbol -> return $ F0Identifier symbol 
