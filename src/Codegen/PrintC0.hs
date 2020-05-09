@@ -227,9 +227,9 @@ outputExpr = \case
       capturedArrayName <- freshName 
       outputLine $ printf "void*[] %s = alloc_array(void*, %d);" capturedArrayName numCaptured 
       outputLine $ printf "%s->captured = %s;" closureName capturedArrayName
-      forM_ closureInfo $ \(Symbol (_, name), ref, i) -> do 
+      forM_ closureInfo $ \(sym, ref, i) -> do 
         let x = resolveRefClosure closureName ref 
-        outputLine $ printf "%s[%d] = %s; // (capture '%s')" capturedArrayName i x name 
+        outputLine $ printf "%s[%d] = %s; // (capture '%s')" capturedArrayName i x (printSymbol sym)
 
     boxedClosureName <- freshName 
     outputLine $ printf "void* %s = (void*)%s;" boxedClosureName closureName 
@@ -277,9 +277,9 @@ outputProgram (mainE, C0CodegenState functionPool) =
           forM_ (zip [0..] functionPool) outputFunction
           outputMain mainE  
 
-        libs = concat $ map mkLibraryWrapper libraryDefs
+        libs = concatMap mkLibraryWrapper libraryDefs
 
-resolveRefIdent :: C0VariableReference -> [Char]
+resolveRefIdent :: C0VariableReference -> String
 resolveRefIdent = \case  
   C0ArgumentReference -> "arg"
   C0ClosureReference i -> printf "closure->captured[%d]" i

@@ -7,7 +7,7 @@
 -- type is a string into one where
 -- the symbol type is able to 
 -- distinguish between shadowed variables
-module Codegen.Symbolize (symbolize, SymbolErrorType(..), Symbol(..), SymbolError(..), printSymbolError) where 
+module Codegen.Symbolize (symbolize, SymbolErrorType(..), Symbol(..), SymbolError(..), printSymbol, printSymbolError) where 
 
 import Parser.AST 
 import LibraryBindings
@@ -37,6 +37,9 @@ instance Ord Symbol where
   compare (NativeFunction _) (Symbol _) = LT 
   compare (Symbol _) (NativeFunction _) = GT 
 
+printSymbol :: Symbol -> String 
+printSymbol (Symbol (_, x)) = x
+printSymbol (NativeFunction x) = x 
 
 type SymbolMap = Map String Symbol 
 data SymbolErrorType = UnboundVariable String deriving (Show, Eq)

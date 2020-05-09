@@ -258,5 +258,6 @@ main = hspec $ do
   context "Typechecking/inference" $ do 
     typeInferenceTests 
 
-  beforeAll_ moveToTestDir $ context "Codegeneration testing via CC0" $ do 
-    integrationTests
+  beforeAll_ moveToTestDir $ 
+    context "Codegeneration testing via CC0" $ do 
+      integrationTests

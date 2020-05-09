@@ -25,7 +25,7 @@ import Codegen.Symbolize
 import Parser.AST 
 import Parser.ASTUtil 
 
-import Data.Maybe (maybe)
+import Data.Maybe (fromMaybe)
 
 import Data.Set (Set)
 import qualified Data.Set as Set 
@@ -192,4 +192,4 @@ programToExpression decls = foldr F0Let mainExpr (init decls)
   where F0Value _ _ mainExpr = last decls
 
 forceLookup :: (Show a, Show b, Eq a) => a -> [(a, b)] -> b
-forceLookup x e = maybe (error $ "codegen: Variable not found! " ++ show x) id $ lookup x e 
+forceLookup x e = fromMaybe (error $ "codegen: Variable not found! " ++ show x) $ lookup x e 
