@@ -181,6 +181,14 @@ typeInferenceTests = describe "Type inference tests" $ do
     typecheckD "fun f x = f (f x)" (Symbol (0, "f")) `shouldBe`
       Right (Forall ["_x2"] $ F0TypeVariable "_x2" `F0Function` F0TypeVariable "_x2")
 
+  it "typechecks the curried equality function" $ 
+    typecheckD "fun eq a b = a == b" (Symbol (0, "eq")) `shouldBe`
+      Right (Forall [] $ f0IntT `F0Function` f0IntT `F0Function` f0BoolT)
+
+  it "typechecks the find function" $ 
+    typecheckD "fun find p n = if n == 0 then 0 else if p (4 * n) then n else find p (n - 1)" (Symbol (0, "find")) `shouldBe`
+      Right (Forall [] $ (f0IntT `F0Function` f0BoolT) `F0Function` f0IntT `F0Function` f0IntT)
+
 main :: IO ()
 main = hspec $ do 
   describe "Parser" $ do 
