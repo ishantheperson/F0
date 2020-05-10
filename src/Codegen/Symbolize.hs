@@ -7,9 +7,10 @@
 -- type is a string into one where
 -- the symbol type is able to 
 -- distinguish between shadowed variables
-module Codegen.Symbolize (symbolize, SymbolErrorType(..), Symbol(..), SymbolError(..), printSymbol, printSymbolError) where 
+module Codegen.Symbolize (symbolize, SymbolErrorType(..), Symbol(..), SymbolError(..)) where 
 
 import Parser.AST 
+import Parser.ASTUtil
 import LibraryBindings
 
 import Data.Map.Strict (Map)
@@ -37,9 +38,9 @@ instance Ord Symbol where
   compare (NativeFunction _) (Symbol _) = LT 
   compare (Symbol _) (NativeFunction _) = GT 
 
-printSymbol :: Symbol -> String 
-printSymbol (Symbol (_, x)) = x
-printSymbol (NativeFunction x) = x 
+instance Display Symbol where 
+  display (Symbol (_, x)) = x
+  display (NativeFunction x) = x 
 
 type SymbolMap = Map String Symbol 
 data SymbolErrorType = UnboundVariable String deriving (Show, Eq)
@@ -48,9 +49,9 @@ type SymbolContext m = (MonadState Int m, MonadWriter [SymbolError] m)
 type Symbolizer m (a :: * -> (* -> *) -> *) (b :: * -> *) = 
   SymbolContext m => SymbolMap -> Maybe SourceRange -> a String b -> m (a Symbol b)
 
-printSymbolError :: SymbolError -> String 
-printSymbolError (SymbolError (range, UnboundVariable x)) = 
-  printSourceRange range ++ ": unbound variable '" ++ x ++ "'"
+instance Display SymbolError where 
+  display (SymbolError (range, UnboundVariable x)) = 
+    printSourceRange range ++ ": unbound variable '" ++ x ++ "'"
 
 -- | Creates a symbol and updates the new symbol number
 mkSymbol :: SymbolContext m => String -> m Symbol 

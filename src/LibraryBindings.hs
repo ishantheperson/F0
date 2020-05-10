@@ -21,7 +21,9 @@ libraryBindings = Map.fromList
   [
     ("println", C0LibraryBinding "println" $ f0StringT `F0Function` f0UnitT),
     ("print", C0LibraryBinding "print" $ f0StringT `F0Function` f0UnitT),
-    ("printint", C0LibraryBinding "printint" $ f0IntT `F0Function` f0UnitT)
+    ("printint", C0LibraryBinding "printint" $ f0IntT `F0Function` f0UnitT),
+
+    ("error", C0LibraryBinding "error" $ f0StringT `F0Function` f0UnitT)
   ]
 
 libraryDefs :: [C0LibraryBinding]

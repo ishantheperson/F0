@@ -12,6 +12,7 @@ import Text.Megaparsec
 import Text.Show.Pretty 
 
 import Parser.AST 
+import Parser.ASTUtil 
 import Parser.Internal 
 
 import Codegen.Symbolize
@@ -58,7 +59,7 @@ main = do
 
   symbolized <- case symbolize parseTree of 
                   Left errors -> do 
-                    mapM_ (putStrLn . printSymbolError) errors 
+                    mapM_ (putStrLn . display) errors 
                     fail "Symbolization failed"
 
                   Right ast -> do 

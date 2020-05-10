@@ -131,6 +131,9 @@ freeVarsTests = describe "Free vars of expressions" $ do
   it "reports free variable inside a lambda" $ 
     freeVariables (F0App (F0Lambda "x" Nothing (F0Identifier "y")) (F0Identifier "z")) `shouldBe` Set.fromList ["y", "z"]
 
+  it "doesn't report bound variables as free" $ 
+    freeVariables (F0Lambda "x" Nothing (F0Identifier "x")) `shouldBe` Set.empty
+
 symbolizerTests :: SpecWith ()
 symbolizerTests = describe "Symbol conversion tests" $ do 
   it "reports an error for an unbound variable" $

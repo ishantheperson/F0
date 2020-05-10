@@ -24,7 +24,7 @@ declName = \case
 -- and returns the free variables of an expression and their types
 freeVariables :: Ord s => F0Expression s f -> Set s 
 freeVariables = \case
-  F0Lambda name t e -> freeVariables e 
+  F0Lambda name t e -> name `Set.delete` freeVariables e
   F0App e1 e2 -> freeVariables e1 <> freeVariables e2 
   F0Identifier x -> Set.singleton x 
   F0Literal _ -> Set.empty 
@@ -75,6 +75,12 @@ normalizeSubst t =
           j <- ['a'..'z']
           return (j : show i)
 
+class Display a where 
+  display :: a -> String 
+
+instance Display F0Type where 
+  display = printType 
+
 -- | Prints out a type, replacing all type variables with 'a, 'b, etc. 
 printType :: F0Type -> String 
 printType t = printType' $ subst (normalizeSubst t) t  
@@ -82,12 +88,15 @@ printType t = printType' $ subst (normalizeSubst t) t
 -- | Prints out a type without normalizing the type variables
 printType' :: F0Type -> String 
 printType' = \case 
-  F0PrimitiveType p -> printPrimitiveType p 
+  F0PrimitiveType p -> display p 
   F0TypeIdent s -> s 
   F0TypeVariable a -> "'" ++ a 
   F0Function a@(F0Function _ _) b -> printf "(%s) -> %s" (printType' a) (printType' b) 
   F0Function a b -> printf "%s -> %s" (printType' a) (printType' b) 
   F0TupleType ts -> "(" ++ intercalate ", " (map printType' ts) ++ ")"
+
+instance Display F0PrimitiveType where 
+  display = printPrimitiveType
 
 printPrimitiveType, printPrimitiveTypeC0 :: F0PrimitiveType -> String 
 printPrimitiveType = \case 

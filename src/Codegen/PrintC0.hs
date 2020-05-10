@@ -257,7 +257,7 @@ outputExpr = \case
       outputLine $ printf "%s->captured = %s;" closureName capturedArrayName
       forM_ closureInfo $ \(sym, ref, i) -> do 
         let x = resolveRefClosure closureName ref 
-        outputLine $ printf "%s[%d] = %s; // (capture '%s')" capturedArrayName i x (printSymbol sym)
+        outputLine $ printf "%s[%d] = %s; // (capture '%s')" capturedArrayName i x (display sym)
 
     boxedClosureName <- freshName 
     outputLine $ printf "void* %s = (void*)%s;" boxedClosureName closureName 
