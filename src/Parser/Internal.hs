@@ -157,20 +157,33 @@ pat =
   <|> (parens $ Tuple <$> (sepBy1 (identifier <|> string "_") (symbol ",")))
   <?> "pattern"
 
--- Basically unused
+-- Really only used when parsing data types
 f0Type :: Parser F0Type
-f0Type = makeExprParser term operators <?> "type"
+f0Type = makeExprParser (term >>= postfix) operators <?> "type"
   where term =  
               F0PrimitiveType F0IntType <$ reserved "int"
           <|> F0PrimitiveType F0StringType <$ reserved "string" 
           <|> F0PrimitiveType F0BoolType <$ reserved "bool"
           <|> F0PrimitiveType F0UnitType <$ reserved "unit"
           <|> F0TypeVariable <$> typeVariable 
-          -- <|> F0TypeIdent <$> identifier 
+          <|> F0TypeIdent <$> identifier
+          <|> typeVarTuple 
           <|> parens f0Type 
         
-        operators = [[InfixR (F0Function <$ symbol "->") ]]
-        typeVariable = char '\'' *> identifier <?> "type variable"
+        postfix e = typeApp e <|> return e 
+        typeApp e = foldl F0TypeCons e <$> some term 
+
+        operators = [[InfixR (F0Function <$ symbol "->")]]
+
+typeVarTuple :: Parser F0Type
+typeVarTuple = try $ parens $ do  
+  tvs <- sepBy typeVariable (symbol ",")
+  return $ case tvs of 
+             [t] -> F0TypeVariable t
+             _ -> F0TypeVariableTuple tvs 
+
+typeVariable :: Parser String
+typeVariable = char '\'' *> identifier <?> "type variable"
 
 -- | Parses a name and maybe a type assertion with it
 name :: Parser (String, Maybe F0Type)

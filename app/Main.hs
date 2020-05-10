@@ -25,6 +25,7 @@ data CompilerOptions = CompilerOptions
     printAst :: Bool,
     printTypes :: Bool,
     printTransformed :: Bool,
+    dontTypecheck :: Bool,
     file :: FilePath
   }
 
@@ -32,6 +33,7 @@ compilerOptions = CompilerOptions
   <$> Opts.switch (Opts.long "print-ast" <> Opts.help "print out the AST after parsing")
   <*> Opts.switch (Opts.long "print-types" <> Opts.help "print out the types of the top level decls")
   <*> Opts.switch (Opts.long "print-transformed" <> Opts.help "print out the transformed program")
+  <*> Opts.switch (Opts.long "skip-typechecking" <> Opts.help "don't typecheck the program and skip to codegen instead")
   <*> (Opts.argument Opts.str (Opts.metavar "<input file>"))
 
 options = Opts.info (compilerOptions Opts.<**> Opts.helper) Opts.fullDesc
@@ -63,6 +65,7 @@ main = do
                     when (printAst options) (pPrint ast)
                     return ast 
 
+  -- typeAST has funs converted into vals 
   (typeAST, typeEnv) <- case typecheckDecls emptyEnv symbolized of 
                           Left errors -> do 
                             mapM_ (putStrLn . printTypeError) errors 
@@ -74,10 +77,9 @@ main = do
   when (printTypes options) $ putStr $ printEnv typeEnv 
 
   let e = programToExpression typeAST 
-  
   let c0Program = runCodegen (codegenExpr [] e)
+
   when (printTransformed options) $ pPrint c0Program
 
   let outputFileName = dropExtension inputFile ++ ".c1"
-
   writeFile outputFileName (outputProgram c0Program)

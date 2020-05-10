@@ -25,6 +25,7 @@ Supported features:
  - Line comments with `--` 
  - Block comments with `(*` 
  - See `test/testcases/` or `test/Spec.hs` for examples
+ - Tuples and tuple patterns (not recursive ones though)
 
 ## Example
 
@@ -45,7 +46,7 @@ val main = fib 0 1 2 20 ; 0
 
 ## Limitations
 Currently a very small subset is implemented.
-There is no pattern matching or sum/product types.
+There is no pattern matching or sum types.
 
 Recursion is implemented using the callstack,
 so it's possible to get a stack overflow

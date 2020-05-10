@@ -70,6 +70,8 @@ data F0Type =
     F0PrimitiveType F0PrimitiveType
   | F0TypeIdent String 
   | F0TypeVariable TypeVariable 
+  | F0TypeVariableTuple [TypeVariable]
+  | F0TypeCons F0Type F0Type -- t1 t2 e.g. int list 
   | F0Function F0Type F0Type 
   | F0TupleType [F0Type]
   deriving (Show, Eq)

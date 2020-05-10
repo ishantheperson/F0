@@ -25,6 +25,7 @@ import Data.Functor.Identity
 
 import GHC.Stack 
 import Debug.Trace 
+import Unsafe.Coerce
 
 -- Using F0PrimitiveType instead 
 -- data C0Type = ..
@@ -144,6 +145,8 @@ codegenExpr env = \case
 
     return $ C0Declare name value letE 
 
+  F0Let (F0DeclPos _ d _) e -> codegenExpr env (F0Let d e)
+
   F0Lambda argName _ e -> do 
     let captured = Set.toList $ freeVariables e 
         (newEnv, definedClosure) = resolveVars 0 [] [] captured 
@@ -174,8 +177,9 @@ codegenExpr env = \case
                                         ((x, C0ClosureReference closureIndex) : newFunctionEnv)
                                         ((x, ref, closureIndex) : definedClosure)
                                         xs 
+  -- other -> error "unknown case"
 
-programToExpression :: [F0Declaration Symbol Identity] -> F0Expression Symbol Identity
+programToExpression :: [F0Declaration Symbol typeInfo] -> F0Expression Symbol typeInfo
 programToExpression decls = foldr F0Let mainExpr (init decls) 
   where F0Value _ _ mainExpr = last decls
 
