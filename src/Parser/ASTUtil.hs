@@ -89,7 +89,7 @@ printType t = printType' $ subst (normalizeSubst t) t
 printType' :: F0Type -> String 
 printType' = \case 
   F0PrimitiveType p -> display p 
-  F0TypeIdent s -> s 
+  -- F0TypeIdent s -> s 
   F0TypeVariable a -> "'" ++ a 
   F0Function a@(F0Function _ _) b -> printf "(%s) -> %s" (printType' a) (printType' b) 
   F0Function a b -> printf "%s -> %s" (printType' a) (printType' b) 

@@ -31,7 +31,8 @@ data F0Expression symbol typeInfo =
   | F0Let (F0Declaration symbol typeInfo) (F0Expression symbol typeInfo) -- ^ let decl in e end. Multiple decls become nested lets
   | F0If (F0Expression symbol typeInfo) (F0Expression symbol typeInfo) (F0Expression symbol typeInfo) -- ^ if e1 then e2 else e3 
   | F0Literal F0Literal 
-  | F0TagValue String Int (F0Expression symbol typeInfo) -- ^ type 
+  | F0TagValue String Int (F0Expression symbol typeInfo) -- ^ introduce sum type
+  | F0Case (F0Expression symbol typeInfo) 
   | F0Identifier symbol 
   | F0Tuple [F0Expression symbol typeInfo] -- ^ Construct a tuple
   | F0TupleAccess Int Int (F0Expression symbol typeInfo) -- ^ Access element i out of n in e 
@@ -70,12 +71,11 @@ type TypeVariable = String
 
 data F0Type = 
     F0PrimitiveType F0PrimitiveType
-  | F0TypeIdent String 
   | F0TypeVariable TypeVariable 
-  | F0TypeVariableTuple [TypeVariable]
-  | F0TypeCons F0Type F0Type -- t1 t2 e.g. int list 
+  | F0TypeTuple [F0Type] -- ^ e.g. (int, string) either 
+  | F0TypeCons F0Type String -- ^ t1 t2 e.g. int list. Right side must be the name of a datatype
   | F0Function F0Type F0Type 
-  | F0TupleType [F0Type]
+  | F0TupleType [F0Type] -- ^ e.g. (string * int) list 
   deriving (Show, Eq)
 
 infixr `F0Function`

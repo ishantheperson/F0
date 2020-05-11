@@ -90,7 +90,7 @@ f0Decl = positioned (fun <|> val <|> datatype)
             -- F0DeclPos <$> getSourcePos <*> p <*> getSourcePos
 
 f0Expression :: Parser (F0Expression String Maybe)
-f0Expression = makeExprParser (term >>= postfix) operators 
+f0Expression = makeExprParser (term >>= postfix) operators <?> "expression"
   where f0Lambda = do 
           name <- reserved "fn" *> pat 
           e <- symbol "=>" *> f0Expression
@@ -173,32 +173,39 @@ pat =
 
 -- Really only used when parsing data types
 f0Type :: Parser F0Type
-f0Type = makeExprParser (term >>= postfix) operators <?> "type"
+f0Type = makeExprParser (term >>= postfixA) operators <?> "type"
   where term =  
               F0PrimitiveType F0IntType <$ reserved "int"
           <|> F0PrimitiveType F0StringType <$ reserved "string" 
           <|> F0PrimitiveType F0BoolType <$ reserved "bool"
           <|> F0PrimitiveType F0UnitType <$ reserved "unit"
           <|> F0TypeVariable <$> typeVariable 
-          <|> F0TypeIdent <$> identifier
+          -- <|> F0TypeIdent <$> identifier
           <|> typeVarTuple 
           <|> parens f0Type 
         
-        postfix e = tupleType e <|> typeApp e <|> return e 
+        -- A little hacky, but whats happening is that
+        -- we need to know if we are parsing a tuple
+        -- type or not. In postfixA we aren't necessarily,
+        -- but in postfixB we are.
+        postfixA e = tupleType e <|> typeApp e postfixA <|> return e
+        postfixB e = typeApp e postfixB <|> return e
         tupleType e = do 
-          ts <- some (symbol "*" *> f0Type)
+          ts <- some (symbol "*" *> (term >>= postfixB))  
           return $ F0TupleType (e:ts)
 
-        typeApp e = foldl F0TypeCons e <$> some term 
+        typeApp e next = 
+             (identifier >>= \name -> next (F0TypeCons e name))
+          --foldl F0TypeCons e <$> some term 
 
         operators = [[InfixR (F0Function <$ symbol "->")]]
 
 typeVarTuple :: Parser F0Type
 typeVarTuple = try $ parens $ do  
-  tvs <- sepBy typeVariable (symbol ",")
+  tvs <- sepBy f0Type (symbol ",")
   return $ case tvs of 
-             [t] -> F0TypeVariable t
-             _ -> F0TypeVariableTuple tvs 
+             [t] -> t
+             _ -> F0TypeTuple tvs 
 
 typeVariable :: Parser String
 typeVariable = char '\'' *> identifier <?> "type variable"
