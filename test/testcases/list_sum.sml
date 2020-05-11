@@ -1,4 +1,4 @@
-datatype 'a list = Empty | Cons of 'a * ('a list)
+datatype 'a list = Empty of unit | Cons of 'a * ('a list)
 
 fun sum l = 
   case l of 

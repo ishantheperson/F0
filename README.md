@@ -47,6 +47,8 @@ val main = fib 0 1 2 20 ; 0
 
 Using sum and product types:
 ```sml
+datatype 'a list = Empty of () | Cons of 'a * 'a list 
+
 fun sum l =
   case l of
     Empty () => 0

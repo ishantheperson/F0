@@ -28,12 +28,14 @@ import LibraryBindings
 import Text.Printf 
 import Control.Monad.State.Strict
 
+import Data.List (intercalate)
 import Data.Maybe (mapMaybe)
 
 generalDecls :: String 
 generalDecls = unlines
   [
     "#use <conio>",
+    "#use <string>",
     "",
     "// The type of all F0 functions",
     "typedef void* f0_function(struct f0_closure* f0_closure, void* arg);",
@@ -62,14 +64,48 @@ boxingHelpers = unlines $ mkBoxingHelpers =<< [F0IntType, F0StringType, F0BoolTy
           , printf "%s f0_unbox_%s(void* p) { return *(%s*)p; }\n" t t t]
 
 mkLibraryWrapper :: C0LibraryBinding -> String 
-mkLibraryWrapper (C0LibraryBinding name (F0PrimitiveType t `F0Function` f0UnitT)) = 
+mkLibraryWrapper (C0LibraryBinding name (F0PrimitiveType t `F0Function` F0PrimitiveType F0UnitType)) = 
   unlines [
     printf "void* %s(struct f0_closure* closure, void* arg) {" (wrappedNativeName name),
     printf "    %s(f0_unbox_%s(arg));" name (printPrimitiveTypeC0 t),
     printf "    return f0_box_int(0);",
     printf "}"
   ]
-mkLibraryWrapper _ = error "Unsupported library function type"
+mkLibraryWrapper (C0LibraryBinding name (F0PrimitiveType t `F0Function` F0PrimitiveType t2)) = 
+  unlines [
+    printf "void* %s(struct f0_closure* closure, void* arg) {" (wrappedNativeName name),
+    printf "    return f0_box_%s(%s(f0_unbox_%s(arg)));" (printPrimitiveTypeC0 t2) name (printPrimitiveTypeC0 t),
+    printf "}"
+  ]
+mkLibraryWrapper (C0LibraryBinding name (F0TupleType ts `F0Function` F0PrimitiveType t2)) = unlines $
+  [
+    printf "void* %s(struct f0_closure* closure, void* arg) {" (wrappedNativeName name),
+    printf "    void*[] args = *(void*[]*)arg;"
+  ] ++ 
+  unboxArgs 0 ts ++ 
+  funcCall t2 ++ 
+  ["}\n"]
+
+  where unboxArg :: Int -> F0Type -> String
+        unboxArg i (F0PrimitiveType t) = printf "    %s arg%d = f0_unbox_%s(args[%i]);" (printPrimitiveTypeC0 t) i (printPrimitiveTypeC0 t) i
+        unboxArg _ _ = error "mkLibraryWrapper: Bad library function type"
+        
+        unboxArgs _ [] = [] 
+        unboxArgs i (t:ts) = unboxArg i t : unboxArgs (i + 1) ts 
+
+        argList n = intercalate ", " $ map (\i -> "arg" ++ show i) [0..n-1]
+        
+        funcCall F0UnitType = 
+          [
+            printf "    %s(%s); return f0_box_int(0);" name (argList (length ts))
+          ]
+        
+        funcCall t = 
+          [
+            printf "    return f0_box_%s(%s(%s));" (printPrimitiveTypeC0 t) name (argList (length ts))
+          ]
+        
+mkLibraryWrapper _ = error "mkLibraryWrapper: Unsupported library function type"
 
 -- | Gets the name of the F0 wrapper function for the given native function 
 wrappedNativeName :: String -> String 

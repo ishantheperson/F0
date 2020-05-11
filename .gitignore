@@ -5,3 +5,4 @@
 *.bc0
 a.out 
 *.dSYM
+.vscode
