@@ -35,7 +35,7 @@ data Pattern = Name String | Tuple [String] | Discard
 
 -- | May generate multiple bindings as a result of a tuple binding
 f0Decl :: Parser [F0Declaration String Maybe]
-f0Decl = positioned fun <|> positioned val
+f0Decl = positioned (fun <|> val <|> datatype)
     where val = do 
             reserved "val"
             name <- pat 
@@ -71,6 +71,20 @@ f0Decl = positioned fun <|> positioned val
                 functionArgs = map (\a -> (transformArg a, Nothing)) args  
 
             return [F0Fun name functionArgs Nothing newFunctionBody]
+
+          datatype = do 
+            reserved "datatype"
+            tvs <- (pure <$> typeVariable) <|> parens (sepBy typeVariable (symbol ",")) <|> pure []
+            name <- identifier 
+            symbol "="
+
+            optional (symbol "|") -- Allow leading bar 
+            dataCases <- sepBy1 dataCase (symbol "|")
+
+            return [F0Data tvs name dataCases] 
+
+            where dataCase :: Parser (String, F0Type)
+                  dataCase = (,) <$> identifier <*> ((reserved "of" *> f0Type) <|> pure f0UnitT)
 
           positioned p = p
             -- F0DeclPos <$> getSourcePos <*> p <*> getSourcePos
@@ -170,7 +184,11 @@ f0Type = makeExprParser (term >>= postfix) operators <?> "type"
           <|> typeVarTuple 
           <|> parens f0Type 
         
-        postfix e = typeApp e <|> return e 
+        postfix e = tupleType e <|> typeApp e <|> return e 
+        tupleType e = do 
+          ts <- some (symbol "*" *> f0Type)
+          return $ F0TupleType (e:ts)
+
         typeApp e = foldl F0TypeCons e <$> some term 
 
         operators = [[InfixR (F0Function <$ symbol "->")]]
@@ -197,13 +215,16 @@ typeAnnotation = optional (symbol ":" *> f0Type) <?> "type annotation"
 symbol :: String -> Parser String
 symbol = Lex.symbol sc
 
+stringLiteral :: Parser String
 stringLiteral = lexeme (char '"' >> manyTill Lex.charLiteral (char '"')) <?> "string" 
+charLiteral :: Parser Char 
 charLiteral = lexeme (char '\'' >> (Lex.charLiteral <* char '\'')) <?> "character"
 
 -- | Parses an integer (the integer is not checked for being in bounds)
 integer :: Parser Integer 
 integer = lexeme (try $ char '0' >> char' 'x' >> Lex.hexadecimal) <|> lexeme Lex.decimal
 
+identifier :: Parser String
 identifier = (lexeme . try) (p >>= check) <?> "identifier"
   where p = (:) <$> identStart <*> many identLetter
         identStart = letterChar
@@ -213,7 +234,7 @@ identifier = (lexeme . try) (p >>= check) <?> "identifier"
                     then fail $ "'" ++ x ++ "' cannot be an identifier"
                     else return x
 
--- reserved :: String -> Parser () 
+reserved :: String -> Parser ()
 reserved word = (lexeme . try) (string word *> notFollowedBy alphaNumChar)
 
 reservedWords :: [String]
@@ -229,7 +250,10 @@ reservedWords = ["val",
                  "unit",
                  "let",
                  "in",
-                 "end"]
+                 "end",
+                 "case",
+                 "of",
+                 "datatype"]
 
 parens, lexeme :: Parser a -> Parser a 
 parens = between (symbol "(") (symbol ")")
