@@ -124,8 +124,23 @@ f0Expression = makeExprParser (term >>= postfix) operators <?> "expression"
                      [x] -> x -- Don't allow tuple of one element
                      _ -> F0Tuple elems 
 
+        f0Case = do 
+          obj <- reserved "case" *> f0Expression
+          reserved "of"
+          optional $ symbol "|"
+          rules <- sepBy1 caseRule (symbol "|")
+          return $ F0Case obj rules 
+
+          where caseRule :: Parser (String, (String, F0Expression String Maybe))
+                caseRule = do 
+                  constructor <- identifier 
+                  x <- option "_unused" $ identifier <|> ("_unused" <$ (symbol "_" <|> symbol "()"))
+                  symbol "=>"
+                  e <- f0Expression
+                  return (constructor, (x, e))
+
         term = positioned $ 
-          choice [f0Let, f0Lambda, f0If, 
+          choice [f0Let, f0Lambda, f0If, f0Case,
                   f0UnitLiteral, f0IntLiteral, f0StringLiteral, f0BoolLiteral, 
                   f0Ident, f0Tuple]
         postfix e = 
@@ -153,7 +168,7 @@ f0Expression = makeExprParser (term >>= postfix) operators <?> "expression"
                   InfixR (symbol ";" *> return (\a b -> F0Let (F0Value "_discard" Nothing a) b))
         positioned p =   -- Source information for expressions can clutter up the AST a lot
                          -- so right now I am removing it 
-            p -- F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
+            F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
 
 -- | Takes a tuple pattern and creates bindings for it in a subexpression e 
 desugarTuple :: [String] -> String -> F0Expression String Maybe -> F0Expression String Maybe 

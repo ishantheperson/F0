@@ -1,9 +1,11 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE LambdaCase #-}
 module Parser.ASTUtil where 
 
 import Parser.AST 
 
 import Data.List (intercalate)
+import Data.Maybe (mapMaybe)
 
 import Data.Set (Set)
 import qualified Data.Set as Set 
@@ -13,11 +15,15 @@ import qualified Data.Map.Strict as Map
 
 import Text.Printf
 
-declName :: F0Declaration symbol typeInfo -> symbol 
+declName :: F0Declaration symbol typeInfo -> Maybe symbol 
 declName = \case 
-  F0Value n _ _ -> n 
-  F0Fun n _ _ _ -> n 
+  F0Value n _ _ -> Just n 
+  F0Fun n _ _ _ -> Just n 
+  F0Data _ _ _ -> Nothing
   F0DeclPos _ d _ -> declName d 
+
+declNames :: [F0Declaration symbol typeInfo] -> [b] -> [(symbol, b)]
+declNames = zip . mapMaybe declName
 
 -- | Takes an expression, a map from 
 -- identifiers to their types (the context at this point)
@@ -33,6 +39,8 @@ freeVariables = \case
   F0If e1 e2 e3 -> Set.unions (freeVariables <$> [e1, e2, e3])
   F0Tuple es -> Set.unions (freeVariables <$> es)
   F0TupleAccess _ _ e -> freeVariables e 
+  F0TagValue _ _ e -> freeVariables e
+  F0Case obj arms -> freeVariables obj <> Set.unions (map (\(_, (x, e)) -> x `Set.delete` freeVariables e) arms)
   F0Let d e -> freeVariables (exprFromDecl d) <> freeVariables e 
   where exprFromDecl = \case 
           F0Value _ _ e -> e 
@@ -56,12 +64,16 @@ instance TypeSubstitutable F0Type where
     t@(F0TypeVariable a) -> Map.findWithDefault t a s 
     F0Function a b -> subst s a `F0Function` subst s b 
     F0TupleType ts -> F0TupleType (subst s <$> ts)
-    t -> t 
+    F0TypeTuple ts -> F0TypeTuple (subst s <$> ts)
+    F0TypeCons t n -> F0TypeCons (subst s t) n 
+    t@(F0PrimitiveType _) -> t 
 
   freeTypeVariables = \case 
     F0TypeVariable a -> Set.singleton a 
     F0Function a b -> freeTypeVariables a <> freeTypeVariables b 
     F0TupleType ts -> Set.unions (freeTypeVariables <$> ts)
+    F0TypeTuple ts -> Set.unions (freeTypeVariables <$> ts)
+    F0TypeCons t _ -> freeTypeVariables t
     _ -> Set.empty     
 
 normalizeSubst :: TypeSubstitutable a => a -> Substitution
@@ -79,7 +91,7 @@ class Display a where
   display :: a -> String 
 
 instance Display F0Type where 
-  display = printType 
+  display = printType
 
 -- | Prints out a type, replacing all type variables with 'a, 'b, etc. 
 printType :: F0Type -> String 
@@ -89,11 +101,14 @@ printType t = printType' $ subst (normalizeSubst t) t
 printType' :: F0Type -> String 
 printType' = \case 
   F0PrimitiveType p -> display p 
-  -- F0TypeIdent s -> s 
   F0TypeVariable a -> "'" ++ a 
   F0Function a@(F0Function _ _) b -> printf "(%s) -> %s" (printType' a) (printType' b) 
   F0Function a b -> printf "%s -> %s" (printType' a) (printType' b) 
-  F0TupleType ts -> "(" ++ intercalate ", " (map printType' ts) ++ ")"
+  F0TupleType ts -> "(" ++ intercalate " * " (map printType' ts) ++ ")"
+  F0TypeTuple [t] -> printType' t
+  F0TypeTuple ts -> "(" ++ intercalate " * " (map printType' ts) ++ ")"
+  F0TypeCons t1@(F0TupleType ts) n -> printf "(%s) %s" (printType' t1) n 
+  F0TypeCons t1 n -> printf "%s %s" (printType' t1) n 
 
 instance Display F0PrimitiveType where 
   display = printPrimitiveType

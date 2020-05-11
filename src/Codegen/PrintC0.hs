@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ConstraintKinds #-}
@@ -37,13 +38,19 @@ generalDecls = unlines
     "// The type of all F0 functions",
     "typedef void* f0_function(struct f0_closure* f0_closure, void* arg);",
     "",
-    "// Type of tuples",
-    "typedef void*[] f0_tuple;",
-    "",
     "// Contains the captured variables as well as the actual function to call",
     "struct f0_closure {",
-    "  f0_function* f;",
-    "  void*[] captured;",
+    "    f0_function* f;",
+    "    void*[] captured;",
+    "};",
+    "",
+    "// Product types",
+    "typedef void*[] f0_tuple;",
+    "",
+    "// Sum types",
+    "struct f0_sum {",
+    "    int tag;",
+    "    void* val;",
     "};"
   ]
 
@@ -188,6 +195,46 @@ outputExpr = \case
     outputLine $ printf "void* %s = (*(f0_tuple*)%s)[%d];" result tuple i 
     return result 
 
+  C0TagValue i e -> do 
+    val <- outputExpr e 
+    unboxedName <- freshName 
+
+    outputLine $ printf "struct f0_sum* %s = alloc(struct f0_sum);" unboxedName 
+    outputLine $ printf "%s->tag = %d;" unboxedName i 
+    outputLine $ printf "%s->val = %s;" unboxedName val  
+
+    boxedName <- freshName 
+    outputLine $ printf "void* %s = (void*)%s;" boxedName unboxedName 
+
+    return boxedName 
+
+  C0SwitchTag e rules -> do 
+    boxed <- outputExpr e 
+    obj <- freshName
+    result <- freshName 
+
+    outputLine $ printf "void* %s = NULL;" result 
+    outputLine $ printf "struct f0_sum* %s = (struct f0_sum*)%s;" obj boxed 
+    let (firstTag, x, firstRule):others = rules 
+
+    outputLine $ printf "if (%s->tag == %d) {" obj firstTag 
+    indent 
+    outputLine $ printf "void* %s = %s->val;" (varName x) obj 
+    ruleOut <- outputExpr firstRule
+    outputLine $ printf "%s = %s;" result ruleOut
+    unindent 
+
+    forM_ others $ \(tag, x, rule) -> do 
+      outputLine $ printf "} else if (%s->tag == %d) {" obj tag 
+      indent 
+      outputLine $ printf "void* %s = %s->val;" (varName x) obj 
+      ruleOut <- outputExpr rule 
+      outputLine $ printf "%s = %s;" result ruleOut
+      unindent 
+
+    outputLine "} else { error(\"Match inexhaustive\"); }"
+    return result 
+    
   C0Identifier ref -> do 
     result <- freshName 
     let x = resolveRefIdent ref 
@@ -299,7 +346,7 @@ outputMain e = do
   outputLine "}\n"
 
 outputProgram :: (C0Expression, C0CodegenState) -> String 
-outputProgram (mainE, C0CodegenState functionPool) =
+outputProgram (mainE, C0CodegenState{functionPool}) =
   generalDecls ++ boxingHelpers ++ libs ++ runPrintC0 go  
   where go = do 
           forM_ (zip [0..] functionPool) outputFunction

@@ -16,6 +16,7 @@ import LibraryBindings
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map 
 
+import Control.Applicative ((<|>))
 import Control.Monad.Writer.Strict
 import Control.Monad.State.Strict
 
@@ -73,20 +74,20 @@ symbolize decls =
   where go :: SymbolContext m => Map String Symbol -> [F0Declaration String b] -> m [F0Declaration Symbol b]
         go _ [] = return []
         go symbolMap (d:ds)= do 
-          (decl, name, symbol) <- symbolizeDecl symbolMap Nothing d
-          others <- go (Map.insert name symbol symbolMap) ds 
+          (decl, mappings) <- symbolizeDecl symbolMap Nothing d
+          others <- go (Map.fromList mappings `Map.union` symbolMap) ds 
           return $ decl:others
 
-symbolizeDecl :: SymbolContext m => SymbolMap -> Maybe SourceRange -> F0Declaration String b -> m (F0Declaration Symbol b, String, Symbol)
+symbolizeDecl :: SymbolContext m => SymbolMap -> Maybe SourceRange -> F0Declaration String b -> m (F0Declaration Symbol b, [(String, Symbol)])
 symbolizeDecl symbolMap position = \case 
   F0DeclPos start decl end -> do 
-    (decl, name, symbol) <- symbolizeDecl symbolMap (Just (start, end)) decl
-    return (F0DeclPos start decl end, name, symbol)
+    (decl, mappings) <- symbolizeDecl symbolMap (Just (start, end)) decl
+    return (F0DeclPos start decl end, mappings)
 
   F0Value name t body -> do 
     symbol <- mkSymbol name 
     decl <- F0Value symbol t <$> symbolizeExpr symbolMap position body
-    return (decl, name, symbol)
+    return (decl, [(name, symbol)])
 
   F0Fun name args t body -> do 
     nameSymbol <- mkSymbol name 
@@ -97,7 +98,16 @@ symbolizeDecl symbolMap position = \case
     argSymbols <- forM argNames mkSymbol
     symbolMap <- return $ Map.fromList (zip argNames argSymbols) <> Map.insert name nameSymbol symbolMap
     decl <- F0Fun nameSymbol (zip argSymbols argTypes) t <$> symbolizeExpr symbolMap position body
-    return (decl, name, nameSymbol)
+    return (decl, [(name, nameSymbol)])
+
+  F0Data tvs name rules -> do 
+    -- Generate a symbol for every constructor 
+    newRules <- forM rules $ \(constructor, t) -> do 
+                  constructorSym <- mkSymbol constructor 
+                  return (constructorSym, t)
+
+    let mapping = zip (fst $ unzip rules) (fst $ unzip newRules)
+    return (F0Data tvs name newRules, mapping)
 
 symbolizeExpr :: Symbolizer m F0Expression typeInfo
 symbolizeExpr symbolMap position = \case
@@ -111,8 +121,8 @@ symbolizeExpr symbolMap position = \case
   F0Literal l -> return $ F0Literal l
   F0TypeAssertion e t -> F0TypeAssertion <$> symbolizeExpr symbolMap position e <*> pure t
   F0Let decl e -> do 
-    (decl, name, nameSym) <- symbolizeDecl symbolMap position decl 
-    e <- symbolizeExpr (Map.insert name nameSym symbolMap) position e 
+    (decl, mapping) <- symbolizeDecl symbolMap position decl 
+    e <- symbolizeExpr (Map.fromList mapping `Map.union` symbolMap) position e 
     return $ F0Let decl e 
 
   F0If e1 e2 e3 -> do 
@@ -127,14 +137,23 @@ symbolizeExpr symbolMap position = \case
     e <- symbolizeExpr symbolMap position e 
     return $ F0TupleAccess i n e 
 
-  F0Identifier name -> 
-    case Map.lookup name symbolMap of 
-      Just symbol -> return $ F0Identifier symbol 
-      Nothing -> 
-        case Map.lookup name libraryBindings of 
-          Just _ -> return $ F0Identifier (NativeFunction name)
-          Nothing -> do 
-            tell [SymbolError (position, UnboundVariable name)]
-            return $ F0Identifier dummySymbol
+  F0Identifier name -> F0Identifier <$> replaceName name 
+  F0Case obj rules -> do 
+    obj <- symbolizeExpr symbolMap position obj 
+    rules <- forM rules $ \(constructor, (x, e)) -> do 
+               constructor <- replaceName constructor
+               xSym <- mkSymbol x
+               e <- symbolizeExpr (Map.insert x xSym symbolMap) position e 
+               return (constructor, (xSym, e))
 
-  -- _ -> error "symbolizeExpr: not yet implemented!"
+    return $ F0Case obj rules 
+    
+  F0TagValue _ _ _ -> error "symbolizeExpr: should not encounter F0TagValue in symbolization phase"
+
+  where replaceName :: SymbolContext m => String -> m Symbol 
+        replaceName name = 
+          case Map.lookup name symbolMap <|> (NativeFunction name <$ Map.lookup name libraryBindings) of 
+            Just symbol -> return symbol 
+            Nothing -> do 
+              tell [SymbolError (position, UnboundVariable name)]
+              return dummySymbol

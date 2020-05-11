@@ -75,7 +75,7 @@ main = do
                           Right results -> return results 
 
   when (printAst options) $ pPrint typeAST
-  when (printTypes options) $ putStr $ printEnv typeEnv 
+  when (printTypes options) $ putStr $ display typeEnv 
 
   let e = programToExpression typeAST 
   let c0Program = runCodegen (codegenExpr [] e)

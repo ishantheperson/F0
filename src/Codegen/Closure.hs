@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE LambdaCase #-}
@@ -18,6 +19,8 @@ import Data.Maybe (fromMaybe)
 
 import Data.Set (Set)
 import qualified Data.Set as Set 
+import Data.Map (Map)
+import qualified Data.Map.Lazy as Map
 
 import Control.Monad.State.Lazy 
 
@@ -38,20 +41,22 @@ data C0VariableReference =
   deriving (Show, Eq)
 
 data C0Expression = 
-    C0Box F0PrimitiveType C0Expression -- ^ allocates type and casts to void*
-  | C0Unbox F0PrimitiveType C0Expression -- ^ Uncast and dereference to target type
+    C0Box F0PrimitiveType C0Expression -- ^ allocates primitive type and casts to void*
+  | C0Unbox F0PrimitiveType C0Expression -- ^ Uncast primitive type and dereference to target type
   | C0CallClosure C0Expression C0Expression -- ^ cast closure to f0_closure*, call function pointer with closure + arg
   | C0NativeFn String -- ^ Represents a C0 native fn 
-  | C0Op F0Operator [C0Expression] -- ^ unboxes ints, performs operation, reboxes
-  | C0If C0Expression C0Expression C0Expression  
+  | C0Op F0Operator [C0Expression] -- ^ Operates on UNBOXED values
+  | C0If C0Expression C0Expression C0Expression -- ^ If-expression. Condition should be UNBOXED bool
 
-  -- | Turning a function into a value. The int identifies which function (as lambdas for example are unnamed)
-  -- The ints inside the tuple identify which index in the closure that argument should be written to 
-  | C0MakeClosure Int [(Symbol, C0VariableReference, Int)] 
+   -- | Turning a function into a value. The int identifies which function (as lambdas for example are unnamed)
+   -- The ints inside the tuple identify which index in the closure that argument should be written to 
+  | C0MakeClosure Int [(Symbol, C0VariableReference, Int)] -- ^ Creates a closure object which can be assigned or called with CallClosure
   | C0Identifier C0VariableReference
-  | C0Literal C0Literal 
-  | C0CreateTuple [C0Expression] -- ^ the tuple is an array of void* 
-  | C0AccessTuple Int C0Expression -- ^ indexing into a statically known index
+  | C0Literal C0Literal -- ^ Unboxed value
+  | C0CreateTuple [C0Expression] -- ^ Create product type 
+  | C0AccessTuple Int C0Expression -- ^ Indexing into a statically known index (object should be BOXED)
+  | C0TagValue Int C0Expression -- ^ Creates sum type 
+  | C0SwitchTag C0Expression [(Int, Symbol, C0Expression)] -- ^ Eliminate sum type with a mapping from tags to expressions
   | C0Declare Symbol C0Expression C0Expression -- ^ declare X as E1 in E2
   deriving (Show, Eq)
 
@@ -72,14 +77,15 @@ data C0Function =
   C0Function (Maybe Symbol) C0Expression
   deriving (Show, Eq)
 
-newtype C0CodegenState = C0CodegenState
+data C0CodegenState = C0CodegenState
   { 
-    functionPool :: [C0Function]
+    functionPool :: [C0Function],
+    labelTags :: Map Symbol Int 
   }
   deriving (Show, Eq)
 
 initialCodegenState :: C0CodegenState
-initialCodegenState = C0CodegenState [] 
+initialCodegenState = C0CodegenState [] Map.empty
 
 type Codegen = MonadState C0CodegenState
 
@@ -88,10 +94,20 @@ runCodegen = flip runState initialCodegenState
 
 addFunction :: Codegen m => C0Expression -> m Int 
 addFunction exp = do 
-  C0CodegenState currentState <- get 
-  let i = length currentState 
-  put $ C0CodegenState (currentState ++ [C0Function Nothing exp])
+  state <- get 
+  let i = length (functionPool state) 
+  put $ state { functionPool = functionPool state ++ [C0Function Nothing exp] }
   return i 
+
+addLabelTag :: Codegen m => Symbol -> Int -> m () 
+addLabelTag sym i = do 
+  state <- get 
+  put $ state { labelTags = Map.insert sym i (labelTags state) }
+
+getLabelTag :: Codegen m => Symbol -> m Int 
+getLabelTag sym = do 
+  labelMap <- gets labelTags
+  return $ labelMap Map.! sym 
 
 codegenExpr :: Codegen m => C0Environment -> F0Expression Symbol typeInfo -> m C0Expression 
 codegenExpr env = \case 
@@ -138,12 +154,33 @@ codegenExpr env = \case
     tuple <- codegenExpr env e 
     return $ C0AccessTuple i tuple 
 
+  F0TagValue _ i e -> do 
+    val <- codegenExpr env e 
+    return $ C0TagValue i val
+
+  F0Case obj rules -> do 
+    objCode <- codegenExpr env obj 
+    ruleCode <- forM rules $ \(tag, (x, e)) -> do 
+      exprCode <- codegenExpr ((x, C0ScopeReference x) : env) e 
+      i <- getLabelTag tag 
+      return (i, x, exprCode)
+
+    return $ C0SwitchTag objCode ruleCode
+
   F0Let (F0Value name _ e) letBody -> do 
     -- Could check if the value is a function before inserting itself into the environment
     value <- codegenExpr ((name, C0RecursiveReference) : env) e 
     letE <- codegenExpr ((name, C0ScopeReference name) : env) letBody 
 
     return $ C0Declare name value letE 
+
+  F0Let (F0Data _ _ objs) letBody -> do 
+    -- Typechecking phase has already inserted the constructor functions, so those will
+    -- automatically generated. We just need to keep track of index tags. 
+    forM_ (zip [0..] objs) $ \(i, (obj, _)) ->
+      addLabelTag obj i
+
+    codegenExpr env letBody 
 
   F0Let (F0DeclPos _ d _) e -> codegenExpr env (F0Let d e)
 
@@ -159,8 +196,9 @@ codegenExpr env = \case
 
     where -- | Returns the new function's environment, and also how to construct the new closure.
           -- *After this function runs, C0ArgumentReference should be added to the newFunctionEnv*
-          resolveVars :: Int 
-                      -> C0Environment -> [(Symbol, C0VariableReference, Int)] 
+          resolveVars :: Int -- ^ Next index to write a captured argument to 
+                      -> C0Environment 
+                      -> [(Symbol, C0VariableReference, Int)] 
                       -> [Symbol]
                       -> (C0Environment, [(Symbol, C0VariableReference, Int)])
           resolveVars closureIndex newFunctionEnv definedClosure = \case 
