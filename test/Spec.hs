@@ -257,6 +257,9 @@ integrationTests = do
   it "correctly executes the curry/uncurry function testcase" $ 
     integrateTest "curry_uncurry.sml"
 
+  it "correctly executed the list summation testcase" $ 
+    integrateTest "list_sum.sml"
+
 main :: IO ()
 main = hspec $ do 
   context "Parser" $ do 
