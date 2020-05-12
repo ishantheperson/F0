@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ExplicitForAll #-}
@@ -8,6 +9,12 @@ module Parser.AST where
 import Text.Megaparsec.Pos 
 
 type SourceRange = (SourcePos, SourcePos)
+
+class Display a where 
+  display :: a -> String 
+
+instance Display (Maybe SourceRange) where 
+  display = printSourceRange
 
 printSourceRange :: Maybe SourceRange -> String 
 printSourceRange Nothing = "<no position information available>"

@@ -260,6 +260,9 @@ integrationTests = do
   it "correctly executed the list summation testcase" $ 
     integrateTest "list_sum.sml"
 
+  it "correctly executed the list 'quick'sort testcase" $ 
+    integrateTest "sort.sml"
+
 main :: IO ()
 main = hspec $ do 
   context "Parser" $ do 

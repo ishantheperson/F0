@@ -134,10 +134,16 @@ f0Expression = makeExprParser (term >>= postfix) operators <?> "expression"
           where caseRule :: Parser (String, (String, F0Expression String Maybe))
                 caseRule = do 
                   constructor <- identifier 
-                  x <- option "_unused" $ identifier <|> ("_unused" <$ (symbol "_" <|> symbol "()"))
+                  x <- option Discard pat
                   symbol "=>"
                   e <- f0Expression
-                  return (constructor, (x, e))
+                  let (var, desugared) = 
+                        case x of 
+                          Name n -> (n, e)
+                          Discard -> ("_unused", e)
+                          Tuple ns -> ("_tuple", desugarTuple ns "_tuple" e)
+
+                  return (constructor, (var, desugared))
 
         term = positioned $ 
           choice [f0Let, f0Lambda, f0If, f0Case,
@@ -168,7 +174,7 @@ f0Expression = makeExprParser (term >>= postfix) operators <?> "expression"
                   InfixR (symbol ";" *> return (\a b -> F0Let (F0Value "_discard" Nothing a) b))
         positioned p =   -- Source information for expressions can clutter up the AST a lot
                          -- so right now I am removing it 
-            F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
+            p -- F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
 
 -- | Takes a tuple pattern and creates bindings for it in a subexpression e 
 desugarTuple :: [String] -> String -> F0Expression String Maybe -> F0Expression String Maybe 

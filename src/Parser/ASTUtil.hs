@@ -87,11 +87,8 @@ normalizeSubst t =
           j <- ['a'..'z']
           return (j : show i)
 
-class Display a where 
-  display :: a -> String 
-
 instance Display F0Type where 
-  display = printType
+  display = printType'
 
 -- | Prints out a type, replacing all type variables with 'a, 'b, etc. 
 printType :: F0Type -> String 

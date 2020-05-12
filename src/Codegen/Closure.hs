@@ -44,7 +44,7 @@ data C0Expression =
     C0Box F0PrimitiveType C0Expression -- ^ allocates primitive type and casts to void*
   | C0Unbox F0PrimitiveType C0Expression -- ^ Uncast primitive type and dereference to target type
   | C0CallClosure C0Expression C0Expression -- ^ cast closure to f0_closure*, call function pointer with closure + arg
-  | C0NativeFn String -- ^ Represents a C0 native fn 
+  | C0NativeFn String -- ^ Represents a native function wrapper 
   | C0Op F0Operator [C0Expression] -- ^ Operates on UNBOXED values
   | C0If C0Expression C0Expression C0Expression -- ^ If-expression. Condition should be UNBOXED bool
 
@@ -188,14 +188,12 @@ codegenExpr env = \case
     let captured = Set.toList $ freeVariables e 
         (newEnv, definedClosure) = resolveVars 0 [] [] captured 
 
-    newEnv <- return $ (argName, C0ArgumentReference):newEnv
-    translatedExp <- codegenExpr newEnv e 
+    translatedExp <- codegenExpr newEnv e   
     functionIndex <- addFunction translatedExp 
 
     return $ C0MakeClosure functionIndex definedClosure 
 
     where -- | Returns the new function's environment, and also how to construct the new closure.
-          -- *After this function runs, C0ArgumentReference should be added to the newFunctionEnv*
           resolveVars :: Int -- ^ Next index to write a captured argument to 
                       -> C0Environment 
                       -> [(Symbol, C0VariableReference, Int)] 
@@ -203,7 +201,7 @@ codegenExpr env = \case
                       -> (C0Environment, [(Symbol, C0VariableReference, Int)])
           resolveVars closureIndex newFunctionEnv definedClosure = \case 
             [] -> (newFunctionEnv, definedClosure)
-            x : xs | x == argName -> resolveVars closureIndex newFunctionEnv definedClosure xs 
+            x : xs | x == argName -> resolveVars closureIndex ((argName, C0ArgumentReference):newFunctionEnv) definedClosure xs 
                    | otherwise    -> 
                         case lookup x env of 
                           -- If it is not in the environment
