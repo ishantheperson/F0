@@ -3,14 +3,10 @@ datatype 'a list = Empty of unit | Cons of 'a * 'a list
 fun filter p L = 
   case L of 
     Empty () => Empty () 
-  | Cons c => 
-      let 
-        val (hd, tl) = c 
-      in 
-        if p hd 
-          then Cons (hd, filter p tl)
-          else filter p tl 
-      end 
+  | Cons (x, xs) => 
+      if p x 
+        then Cons (x, filter p xs)
+        else filter p xs
 
 fun null L = 
   case L of 
@@ -20,49 +16,37 @@ fun null L =
 fun append (L1, L2) = 
   case L1 of 
     Empty () => L2 
-  | Cons c => 
-      let 
-        val (hd, tl) = c 
-      in
-        Cons (hd, append (tl, L2)) 
-      end 
-
-fun less a b = a < b 
-fun greater a b = !(a < b)
-fun sort L = 
-  case L of 
-    Empty () => Empty () 
-  | Cons c => 
-      let 
-        val (hd, tl) = c 
-      in
-        if null tl 
-          then L 
-          else 
-            let 
-              val small = filter (greater hd) tl 
-              val big = filter (less hd) tl 
-            in 
-              append (sort small, append (Cons (hd, Empty ()), sort big))
-            end 
-      end 
+  | Cons (x, xs) => Cons (x, append (xs, L2)) 
 
 fun toString elemToString L =
   let
     fun go L2 =
       case L2 of
         Empty () => ""
-      | Cons items =>
-          let
-            val (hd, tl) = items
-          in
-            case tl of
-              Empty () => elemToString hd
-            | Cons _ => string_join (elemToString hd, string_join (", ", go tl))
-          end
+      | Cons (x, xs) =>
+          case xs of
+            Empty () => elemToString x
+          | Cons _ => string_join (elemToString x, string_join (", ", go xs))
   in
     string_join ("[", string_join (go L, "]"))
   end
+
+fun less a b = a < b 
+fun greater a b = !(a < b)
+
+fun sort L = 
+  case L of 
+    Empty () => Empty () 
+  | Cons (x, xs) => 
+      if null xs 
+        then L 
+        else 
+          let 
+            val small = filter (greater x) xs
+            val big = filter (less x) xs
+          in 
+            append (sort small, append (Cons (x, Empty ()), sort big))
+          end 
 
 val main = 
   let
