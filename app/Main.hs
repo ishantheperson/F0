@@ -1,4 +1,4 @@
-{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE RecordWildCards #-}
 module Main where
 
 import Control.Monad 
@@ -30,32 +30,34 @@ data CompilerOptions = CompilerOptions
     printTransformed :: Bool,
     executeProgram :: Bool,
     keepC1 :: Bool,
+    optimize :: Bool,
     file :: FilePath
   }
 
 compilerOptions = CompilerOptions 
-  <$> Opts.switch (Opts.long "print-ast" <> Opts.help "print out the AST after parsing")
+  <$> Opts.switch (Opts.long "print-ast" <> Opts.help "print out the AST at various points during compilation")
   <*> Opts.switch (Opts.long "print-types" <> Opts.help "print out the types of the top level decls")
   <*> Opts.switch (Opts.long "print-transformed" <> Opts.help "print out the transformed program")
   <*> Opts.switch (Opts.long "execute" <> Opts.short 'x' <> Opts.help "execute the program if it compiles")
   <*> Opts.switch (Opts.long "save-files" <> Opts.short 's' <> Opts.help "save the generated C1 code")
+  <*> Opts.switch (Opts.short 'O' <> Opts.help "optimize by passing -O2 to the C compiler")
   <*> (Opts.argument Opts.str (Opts.metavar "<input file>"))
 
 options = Opts.info (compilerOptions Opts.<**> Opts.helper) Opts.fullDesc
 
 main :: IO ()
 main = do 
-  options <- Opts.execParser options 
-  let inputFile = file options 
+  CompilerOptions{..} <- Opts.execParser options 
+  let inputFile = file 
   text <- readFile inputFile
   
-  parseTree <- case runParser (sc *> f0Decls <* eof) (file options) text of 
+  parseTree <- case runParser (sc *> f0Decls <* eof) file text of 
                  Left errors -> do 
                    putStrLn $ errorBundlePretty errors 
                    fail "Parsing failed"
 
                  Right ast -> do 
-                   when (printAst options) (pPrint ast)
+                   when printAst (pPrint ast)
                    return ast 
 
   -- Insert main value (_main)
@@ -67,7 +69,7 @@ main = do
                     fail "Symbolization failed"
 
                   Right ast -> do 
-                    when (printAst options) (pPrint ast)
+                    when printAst (pPrint ast)
                     return ast 
 
   -- typeAST has funs converted into vals 
@@ -78,24 +80,24 @@ main = do
 
                           Right results -> return results 
 
-  when (printAst options) $ pPrint typeAST
-  when (printTypes options) $ putStr $ display typeEnv 
+  when printAst $ pPrint typeAST
+  when printTypes $ putStr $ display typeEnv 
 
   let e = programToExpression typeAST 
   let c0Program = runCodegen (codegenExpr [] e)
 
-  when (printTransformed options) $ pPrint c0Program
+  when printTransformed $ pPrint c0Program
 
   -- Write output file 
   let basename = dropExtension inputFile
       outputFileName = basename ++ ".c1"
   writeFile outputFileName (outputProgram c0Program)
 
-  -- Compile program using CC0 
-  callProcess "cc0" ["-o", basename, outputFileName] 
+  -- Compile program using CC0, optimizing
+  callProcess "cc0" ["-c", "-O2", "-o", basename, outputFileName] 
 
   -- Avoid cluttering the directory by removing the generated code
-  unless (keepC1 options) $ removeFile outputFileName
+  unless keepC1 $ removeFile outputFileName
 
   -- If requested, execute the program
-  when (executeProgram options) $ callProcess ("./" ++ basename) []
+  when executeProgram $ callProcess ("./" ++ basename) []
