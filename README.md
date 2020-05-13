@@ -7,14 +7,21 @@ MiniML implementation which compiles to C0
 % stack build
 % stack install # optional
 % f0 -h # or stack run -- -h if you don't want ot install
-Usage: f0 [--print-ast] [--print-types] [--print-transformed] <input file>
+Usage: f0 [--print-ast] [--print-types] [--print-transformed] [-x|--execute]
+          [-s|--save-files] [-O] <input file>
 
 Available options:
-  --print-ast              print out the AST after parsing
+  --print-ast              print out the AST at various points during
+                           compilation
   --print-types            print out the types of the top level decls
   --print-transformed      print out the transformed program
+  -x,--execute             execute the program if it compiles
+  -s,--save-files          save the generated C1 code
+  -O                       optimize by passing -O2 to the C compiler
   -h,--help                Show this help text
 % f0 <file.sml> # generates executable "file"
+% f0 -x <file.sml> # run "file.sml"
+% f0 -s <file.sml> # create "file.c1" for inspection of generated code
 ```
 
 Supported features:
@@ -24,10 +31,11 @@ Supported features:
  - `let` expressions with local `datatype` declarations
  - Line comments with `--` 
  - Block comments with `(*` 
- - **Dynamically checked contracts** using `(*@requires ... @*)` or `(*ensures ... @*)`
+ - **Dynamically checked contracts** using `(*@requires ... @*)` or `(*ensures ... @*)` 
  - See `test/testcases/` or `test/Spec.hs` for examples
  - Tuples and tuple patterns (no recursive patterns)
  - Sum types
+ - Interface with C0/1 code or C0 libraries by declaring functions in `LibraryBindings.hs`
 
 ## Example
 
@@ -43,7 +51,9 @@ fun fib a b i stop =
 
 -- main always needs to return int
 -- it is returned from main in the C1 program
-val main = fib 0 1 2 20 ; 0
+val main = 
+  fib 0 1 2 20 ; 
+  0
 ```
 
 Using sum and product types:
@@ -53,28 +63,34 @@ datatype 'a list = Empty of () | Cons of 'a * 'a list
 fun sum l =
   case l of
     Empty () => 0
-  | Cons l2 =>
-      let val (hd, tl) = l2 in
-      hd + (sum tl)
-      end
+  | Cons (x, xs) => x + sum xs
 
 fun tabulate f n =
   if n == 0
     then Empty ()
     else Cons (f n, tabulate f (n - 1))
 
-fun compose f g = fn x => f (g x)
-
 fun tabulateIdx f n = tabulate (fn x => (x, f x)) n
 
-fun id x = x
-
 val main = sum (tabulate id 53)
+```
+
+## Built-in functions
+```sml
+print, println, printint : string -> unit 
+string_join : string * string -> string
+string_fromint : int -> string
+string_length : string -> int
+
+error : string -> unit
+assert : bool -> unit
 ```
 
 ## Limitations
 "Pattern matching" is limited as you can really only
 do one layer at a time (inspect a sum or product type).
+
+There are no type aliases or type annotations (Type annotations will parse but won't do anything).
 
 Recursion is implemented using the callstack,
 so it's possible to get a stack overflow. This can be avoided by
