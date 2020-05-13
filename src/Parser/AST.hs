@@ -49,11 +49,9 @@ data F0Expression symbol typeInfo =
 
 deriving instance (Show (typeInfo F0Type), Show symbol) => Show (F0Declaration symbol typeInfo)
 deriving instance (Show (typeInfo F0Type), Show symbol) => Show (F0Expression symbol typeInfo)
--- deriving instance (Show (typeInfo F0Type), Show symbol) => Show (F0Pattern symbol typeInfo)
 
 deriving instance (Eq (typeInfo F0Type), Eq symbol) => Eq (F0Declaration symbol typeInfo)
 deriving instance (Eq (typeInfo F0Type), Eq symbol) => Eq (F0Expression symbol typeInfo)
--- deriving instance (Eq (typeInfo F0Type), Eq symbol) => Eq (F0Pattern symbol typeInfo)
 
 data F0Literal = 
     F0IntLiteral Integer 

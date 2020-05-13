@@ -106,7 +106,7 @@ symbolizeDecl symbolMap position = \case
                   constructorSym <- mkSymbol constructor 
                   return (constructorSym, t)
 
-    let mapping = zip (fst $ unzip rules) (fst $ unzip newRules)
+    let mapping = zip (map fst rules) (map fst newRules)
     return (F0Data tvs name newRules, mapping)
 
 symbolizeExpr :: Symbolizer m F0Expression typeInfo
@@ -148,7 +148,7 @@ symbolizeExpr symbolMap position = \case
 
     return $ F0Case obj rules 
     
-  F0TagValue _ _ _ -> error "symbolizeExpr: should not encounter F0TagValue in symbolization phase"
+  F0TagValue {} -> error "symbolizeExpr: should not encounter F0TagValue in symbolization phase"
 
   where replaceName :: SymbolContext m => String -> m Symbol 
         replaceName name = 

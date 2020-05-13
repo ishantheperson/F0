@@ -215,7 +215,7 @@ infer range e = case e of
     
     return (F0TupleAccess i n e, (tvs !! i, (range, F0TupleType tvs, t) : cs))
 
-  F0TagValue _ _ _ -> error "infer: F0TagValue should not be part of type inference"
+  F0TagValue{} -> error "infer: F0TagValue should not be part of type inference"
   F0Case obj rules -> do 
     -- Check all labels are from the same type
     let actualLabels = Set.fromList $ fst <$> rules 

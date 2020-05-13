@@ -1,4 +1,3 @@
-{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE LambdaCase #-}
 module Parser.ASTUtil where 
 
@@ -19,7 +18,7 @@ declName :: F0Declaration symbol typeInfo -> Maybe symbol
 declName = \case 
   F0Value n _ _ -> Just n 
   F0Fun n _ _ _ -> Just n 
-  F0Data _ _ _ -> Nothing
+  F0Data{} -> Nothing
   F0DeclPos _ d _ -> declName d 
 
 declNames :: [F0Declaration symbol typeInfo] -> [b] -> [(symbol, b)]
