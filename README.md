@@ -5,16 +5,16 @@ MiniML implementation which compiles to C0
 ## Usage
 ```
 % stack build
-% stack run -- -h
-Usage: f0-exe [--print-ast] [--print-types] [--print-transformed] <input file>
+% stack install # optional
+% f0 -h # or stack run -- -h if you don't want ot install
+Usage: f0 [--print-ast] [--print-types] [--print-transformed] <input file>
 
 Available options:
   --print-ast              print out the AST after parsing
   --print-types            print out the types of the top level decls
   --print-transformed      print out the transformed program
   -h,--help                Show this help text
-% stack run -- <file.sml> # generates file.c1
-% cc0 file.c1 
+% f0 <file.sml> # generates executable "file"
 ```
 
 Supported features:
@@ -24,6 +24,7 @@ Supported features:
  - `let` expressions with local `datatype` declarations
  - Line comments with `--` 
  - Block comments with `(*` 
+ - **Dynamically checked contracts** using `(*@requires ... @*)` or `(*ensures ... @*)`
  - See `test/testcases/` or `test/Spec.hs` for examples
  - Tuples and tuple patterns (no recursive patterns)
  - Sum types
@@ -76,4 +77,6 @@ val main = sum (tabulate id 53)
 do one layer at a time (inspect a sum or product type).
 
 Recursion is implemented using the callstack,
-so it's possible to get a stack overflow
+so it's possible to get a stack overflow. This can be avoided by
+compiling and running using C1VM instead (use `-s` or `--save-files` to
+keep the C1 source)
