@@ -67,9 +67,9 @@ main = do
                     return ast 
 
   -- typeAST has funs converted into vals 
-  (typeAST, typeEnv) <- case typecheckDecls emptyEnv symbolized of 
+  (typeEnv, typeAST) <- case typecheck emptyEnv defaultState symbolized of 
                           Left errors -> do 
-                            mapM_ (putStrLn . printTypeError) errors 
+                            putStrLn . display $ errors 
                             fail "Typechecking failed"
 
                           Right results -> return results 

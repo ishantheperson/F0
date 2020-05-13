@@ -129,6 +129,7 @@ f0Expression = makeExprParser (term >>= postfix) operators <?> "expression"
           reserved "of"
           optional $ symbol "|"
           rules <- sepBy1 caseRule (symbol "|")
+          optional $ reserved "end"
           return $ F0Case obj rules 
 
           where caseRule :: Parser (String, (String, F0Expression String Maybe))
@@ -174,7 +175,7 @@ f0Expression = makeExprParser (term >>= postfix) operators <?> "expression"
                   InfixR (symbol ";" *> return (\a b -> F0Let (F0Value "_discard" Nothing a) b))
         positioned p =   -- Source information for expressions can clutter up the AST a lot
                          -- so right now I am removing it 
-            p -- F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
+            F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
 
 -- | Takes a tuple pattern and creates bindings for it in a subexpression e 
 desugarTuple :: [String] -> String -> F0Expression String Maybe -> F0Expression String Maybe 
@@ -201,7 +202,7 @@ f0Type = makeExprParser (term >>= postfixA) operators <?> "type"
           <|> F0PrimitiveType F0BoolType <$ reserved "bool"
           <|> F0PrimitiveType F0UnitType <$ reserved "unit"
           <|> F0TypeVariable <$> typeVariable 
-          -- <|> F0TypeIdent <$> identifier
+          <|> F0TypeCons (F0TypeTuple []) <$> identifier
           <|> typeVarTuple 
           <|> parens f0Type 
         

@@ -8,6 +8,18 @@ fun filter p L =
         then Cons (x, filter p xs)
         else filter p xs
 
+fun partition p L = 
+  case L of 
+    Empty () => (Empty (), Empty ())
+  | Cons (x, xs) =>
+      let 
+        val (l, r) = partition p xs 
+      in 
+        if p x 
+          then (Cons (x, l), r)
+          else (l, Cons (x, r))
+      end 
+
 fun null L = 
   case L of 
     Empty () => true 
@@ -18,15 +30,15 @@ fun append (L1, L2) =
     Empty () => L2 
   | Cons (x, xs) => Cons (x, append (xs, L2)) 
 
-fun toString elemToString L =
+fun toString elem_toString L =
   let
     fun go L2 =
       case L2 of
         Empty () => ""
       | Cons (x, xs) =>
           case xs of
-            Empty () => elemToString x
-          | Cons _ => string_join (elemToString x, string_join (", ", go xs))
+            Empty () => elem_toString x
+          | Cons _ => string_join (elem_toString x, string_join (", ", go xs))
   in
     string_join ("[", string_join (go L, "]"))
   end
@@ -42,8 +54,7 @@ fun sort L =
         then L 
         else 
           let 
-            val small = filter (greater x) xs
-            val big = filter (less x) xs
+            val (small, big) = partition (greater x) xs 
           in 
             append (sort small, append (Cons (x, Empty ()), sort big))
           end 

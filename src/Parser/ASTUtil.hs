@@ -88,7 +88,7 @@ normalizeSubst t =
           return (j : show i)
 
 instance Display F0Type where 
-  display = printType'
+  display = printType
 
 -- | Prints out a type, replacing all type variables with 'a, 'b, etc. 
 printType :: F0Type -> String 
@@ -104,7 +104,7 @@ printType' = \case
   F0TupleType ts -> "(" ++ intercalate " * " (map printType' ts) ++ ")"
   F0TypeTuple [t] -> printType' t
   F0TypeTuple ts -> "(" ++ intercalate " * " (map printType' ts) ++ ")"
-  F0TypeCons t1@(F0TupleType ts) n -> printf "(%s) %s" (printType' t1) n 
+  F0TypeCons (F0TypeTuple []) n -> n 
   F0TypeCons t1 n -> printf "%s %s" (printType' t1) n 
 
 instance Display F0PrimitiveType where 

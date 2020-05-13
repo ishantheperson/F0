@@ -138,6 +138,13 @@ operatorOutput = \case
   And -> F0BoolType
   Or -> F0BoolType
 
+literalType :: F0Literal -> F0Type 
+literalType = \case
+  F0IntLiteral _ -> f0IntT
+  F0StringLiteral _ -> f0StringT
+  F0BoolLiteral _ -> f0BoolT
+  F0UnitLiteral -> f0UnitT
+
 printOp :: F0Operator -> String 
 printOp = \case 
   Equals -> "=="

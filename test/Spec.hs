@@ -28,15 +28,15 @@ parseExp = tryParse f0Expression
 parseType = runParser f0Type ""
 parseDecl = tryParse f0Decl 
 
-typecheckE :: String -> Either [TypeError] F0Type
+typecheckE :: String -> Either TypeError F0Type
 typecheckE s = 
   let (F0Value _ _ e) = head $ forceSymbols ("val foo = " ++ s)
-  in fmap (\(_, Forall _ t) -> t) (typecheck emptyEnv e)
+  in typecheckExpr e 
 
-typecheckD :: String -> Symbol -> Either [TypeError] Scheme
+typecheckD :: String -> Symbol -> Either TypeError Scheme
 typecheckD s n = 
   let syms = forceSymbols s 
-  in case snd <$> typecheckDecls emptyEnv syms of 
+  in case fst <$> typecheck emptyEnv defaultState syms of 
        Left e -> Left e 
        Right env -> Right $ fromJust $ getSymbolType env n 
 
@@ -68,7 +68,7 @@ integrateTest inputFile = do
                     Left errors -> fail "Symbolization failed"
                     Right ast -> return ast 
 
-    (typeAST, typeEnv) <- case typecheckDecls emptyEnv symbolized of 
+    (typeEnv, typeAST) <- case typecheck emptyEnv defaultState symbolized of 
                             Left errors -> fail "Typechecking failed"
                             Right results -> return results 
 
@@ -165,7 +165,7 @@ symbolizerTests = describe "Symbol conversion tests" $ do
 typeInferenceTests :: SpecWith ()
 typeInferenceTests = do 
   it "gives the correct type to the identity function" $ 
-    typecheckE "fn x => x" `shouldBe` Right (F0TypeVariable "a" `F0Function` F0TypeVariable "a")
+    typecheckE "fn x => x" `shouldBe` Right (F0TypeVariable "_x0" `F0Function` F0TypeVariable "_x0")
 
   it "rejects an infinite type" $
     typecheckE "fn x => x x" `shouldSatisfy` isLeft 
@@ -178,7 +178,7 @@ typeInferenceTests = do
 
   it "gives the correct type to the constant function" $ 
     typecheckE "fn x => fn y => x" `shouldBe` Right (
-      F0TypeVariable "a" `F0Function` (F0TypeVariable "b" `F0Function` F0TypeVariable "a")
+      F0TypeVariable "_x0" `F0Function` (F0TypeVariable "_x1" `F0Function` F0TypeVariable "_x0")
     )
 
   -- it "respects type annotation on a lambda" $ 
@@ -191,7 +191,7 @@ typeInferenceTests = do
 
   it "can check a polymorphic application inside a lambda" $
     typecheckE "fn x => (fn y => y x) (fn x => x)" `shouldBe` Right (
-      F0TypeVariable "a" `F0Function` F0TypeVariable "a"
+      F0TypeVariable "_x4" `F0Function` F0TypeVariable "_x4"
     )
 
   it "checks the looping function" $ 
@@ -218,7 +218,7 @@ typeInferenceTests = do
       
   it "typechecks a higher order function with looping and using () as a name" $ 
     typecheckD "fun loop f n = if n == 0 then () else let val () = f n in loop f (n - 1) end" (Symbol (0, "loop")) `shouldBe` 
-      Right (Forall ["_x4"] $ (f0IntT `F0Function` F0TypeVariable "_x4") `F0Function` f0IntT `F0Function` f0UnitT)
+      Right (Forall ["_x3"] $ (f0IntT `F0Function` F0TypeVariable "_x3") `F0Function` f0IntT `F0Function` f0UnitT)
 
   it "typechecks the factorial function" $ 
     typecheckD "fun fact n = if n == 0 then 1 else n * fact (n - 1)" (Symbol (0, "fact")) `shouldBe`
@@ -251,16 +251,16 @@ integrationTests = do
   it "correctly executes the find testcase" $ 
     integrateTest "find.sml"
 
-  it "correctly executed the uncurred addition testcase" $ 
+  it "correctly executes the uncurred addition testcase" $ 
     integrateTest "tuple_addition.sml"
 
   it "correctly executes the curry/uncurry function testcase" $ 
     integrateTest "curry_uncurry.sml"
 
-  it "correctly executed the list summation testcase" $ 
+  it "correctly executes the list summation testcase" $ 
     integrateTest "list_sum.sml"
 
-  it "correctly executed the list 'quick'sort testcase" $ 
+  it "correctly executes the list 'quick'sort testcase" $ 
     integrateTest "sort.sml"
 
 main :: IO ()
