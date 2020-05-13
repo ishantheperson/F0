@@ -3,10 +3,15 @@
 MiniML implementation which compiles to C0
 
 ## Usage
+The `f0` compiler is already installed on Andrew Linux at `~ibhargav/public/f0`. It can be compiled from source using:
 ```
 % stack build
-% stack install # optional
-% f0 -h # or stack run -- -h if you don't want ot install
+% stack install 
+```
+
+Running:
+```
+% f0 -h # or stack run -- -h if you don't want to install
 Usage: f0 [--print-ast] [--print-types] [--print-transformed] [-x|--execute]
           [-s|--save-files] [-O] <input file>
 
