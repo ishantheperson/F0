@@ -274,7 +274,7 @@ infer range e = case e of
 
   F0Let d e -> do 
     (ds, schms, (s, c)) <- checkDecl range d 
-    (e, (t, c2)) <- local (extendEnvs schms . subst s) $ infer range e 
+    (e, (t, c2)) <- local (subst s . extendEnvs schms) $ infer range e 
     return (foldr F0Let e ds, (t, c2 ++ c))
 
 
@@ -366,9 +366,9 @@ checkDecl range d = do
       let lambdaForm = lambdafy e args 
       (e, (t, cs)) <- local (extendEnv name (Forall [] funT)) $ infer range lambdaForm
       s <- solve ((range, t, funT) : cs) 
-      
+
       let ft = subst s t 
-      return ([F0Value name (Identity ft) $ subst s e], [(name, generalize env ft)], (s, cs)) 
+      return ([F0Value name (Identity ft) $ subst s e], [(name, generalize (subst s env) ft)], (s, cs)) 
 
       where lambdafy :: F0Expression Symbol Maybe -> [(Symbol, Maybe F0Type)] -> F0Expression Symbol Maybe
             lambdafy base = \case 
