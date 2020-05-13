@@ -26,7 +26,8 @@ libraryBindings = Map.fromList
 
     ("string_join", C0LibraryBinding "string_join" $ F0TupleType [f0StringT, f0StringT] `F0Function` f0StringT),
     ("string_fromint", C0LibraryBinding "string_fromint" $ f0IntT `F0Function` f0StringT),
-    ("error", C0LibraryBinding "error" $ f0StringT `F0Function` f0UnitT)
+    ("error", C0LibraryBinding "error" $ f0StringT `F0Function` f0UnitT),
+    ("assert", C0LibraryBinding "assert" $ f0BoolT `F0Function` f0UnitT)
   ]
 
 libraryDefs :: [C0LibraryBinding]

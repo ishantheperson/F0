@@ -1,7 +1,10 @@
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 module Parser.Internal where 
 
 import Data.Void 
+
+import Data.List (partition)
 import Data.Maybe (catMaybes)
 import Control.Monad (void)
 
@@ -12,8 +15,6 @@ import Text.Megaparsec.Char
 import Text.Megaparsec.Debug 
 import qualified Text.Megaparsec.Char.Lexer as Lex
 import Control.Monad.Combinators.Expr
-
-import Debug.Trace 
 
 type Parser = Parsec Void String 
 -- type Parser = ParsecT Void String (Writer [ParseError String Void])
@@ -31,7 +32,10 @@ f0Decls = concat <$> many f0Decl
           someTill anySingle (void . lookAhead $ choice (reserved <$> ["fun", "val"]) <|> eof)
           return Nothing -}
 
-data Pattern = Name String | Tuple [String] | Discard
+data ContractType = Requires | Ensures deriving Show 
+isRequires Requires = True 
+isRequires Ensures = False
+data Pattern = Name String | Tuple [String] | Discard deriving Show
 
 -- | May generate multiple bindings as a result of a tuple binding
 f0Decl :: Parser [F0Declaration String Maybe]
@@ -50,16 +54,37 @@ f0Decl = positioned (fun <|> val <|> datatype)
                       go (t:ts) i = (F0Value t Nothing (F0TupleAccess i numItems (F0Identifier "_tuple"))) : go ts (i + 1)
 
           fun = do 
+            contracts <- option [] (many contract)
             name <- reserved "fun" *> identifier  
             args <- zip [0..] <$> some pat 
             e <- symbol "=" *> f0Expression
-            let desugarArg :: (Int, Pattern) -> F0Expression String Maybe -> F0Expression String Maybe
+
+            let -- Desugar contracts first 
+                (map snd -> requires, map snd -> ensures) = partition (isRequires . fst) contracts
+
+                transformEnsures e ensured = 
+                  F0Let (F0Value "_ensures" Nothing (F0App (F0Identifier "assert") ensured)) e
+
+                withEnsures = 
+                  if null ensures then e 
+                  else 
+                    F0Let (F0Value "result" Nothing e) 
+                      (foldl transformEnsures (F0Identifier "result") ensures)
+
+                transformRequires :: F0Expression String Maybe -> F0Expression String Maybe -> F0Expression String Maybe 
+                transformRequires e required = 
+                  F0Let (F0Value "_requires" Nothing (F0App (F0Identifier "assert") required)) e
+
+                withRequires = foldl transformRequires withEnsures requires 
+
+                -- Desugar tuple destructuring next 
+                desugarArg :: (Int, Pattern) -> F0Expression String Maybe -> F0Expression String Maybe
                 desugarArg (i, p) e = case p of 
                   Name s -> e 
                   Discard -> e 
                   Tuple ts -> desugarTuple ts ("_tuple" ++ show i) e 
 
-                newFunctionBody = foldr desugarArg e args
+                newFunctionBody = foldr desugarArg withRequires args
 
                 transformArg :: (Int, Pattern) -> String 
                 transformArg = \case 
@@ -71,6 +96,12 @@ f0Decl = positioned (fun <|> val <|> datatype)
                 functionArgs = map (\a -> (transformArg a, Nothing)) args  
 
             return [F0Fun name functionArgs Nothing newFunctionBody]
+
+          contract :: Parser (ContractType, F0Expression String Maybe)
+          contract = symbol "(*@" *> (
+                                      (,) <$> ((Requires <$ reserved "requires") <|> (Ensures <$ reserved "ensures"))
+                                          <*> f0Expression 
+                                     ) <* symbol "@*)"
 
           datatype = do 
             reserved "datatype"
@@ -86,8 +117,12 @@ f0Decl = positioned (fun <|> val <|> datatype)
             where dataCase :: Parser (String, F0Type)
                   dataCase = (,) <$> identifier <*> ((reserved "of" *> f0Type) <|> pure f0UnitT)
 
-          positioned p = p
-            -- F0DeclPos <$> getSourcePos <*> p <*> getSourcePos
+          positioned p = do 
+            start <- getSourcePos
+            decls <- p 
+            end <- getSourcePos
+
+            return $ map (\d -> F0DeclPos start d end) decls 
 
 f0Expression :: Parser (F0Expression String Maybe)
 f0Expression = makeExprParser (term >>= postfix) operators <?> "expression"
@@ -117,9 +152,7 @@ f0Expression = makeExprParser (term >>= postfix) operators <?> "expression"
           return $ foldr F0Let e decls 
 
         f0Tuple = do 
-          symbol "("
-          elems <- sepBy1 f0Expression (symbol ",")
-          symbol ")"
+          elems <- parens (sepBy1 f0Expression (symbol ","))
           return $ case elems of 
                      [x] -> x -- Don't allow tuple of one element
                      _ -> F0Tuple elems 
@@ -155,26 +188,30 @@ f0Expression = makeExprParser (term >>= postfix) operators <?> "expression"
 
         functionApp e = foldl F0App e <$> some term 
 
-        operators = [[prefixOp "!" Not],
+        operators = [[prefixOp "!" Not,
+                      Prefix (operator "-" *> return (\a -> F0OpExp Minus [F0Literal $ F0IntLiteral 0, a]))],
                      [binOp Times,
                       binOp Divide],
                      [binOp Plus,
                       binOp Minus],
-                     [binOp LessThan],
-                     [binOp Equals],
+                     [binOp LessThan,
+                      binOp LessEq,
+                      binOp GreaterThan,
+                      binOp GreaterEq],
+                     [binOp Equals,
+                      binOp NotEquals],
                      [binOp And],
                      [binOp Or],
                      [semicolon]]
           where prefixOp opString opConstructor = 
-                  Prefix (symbol opString *> return (\a -> F0OpExp opConstructor [a]))
+                  Prefix (operator opString *> return (\a -> F0OpExp opConstructor [a]))
                 binOp opConstructor = 
-                  InfixL (symbol (printOp opConstructor) *> return (\a b -> F0OpExp opConstructor [a, b])) 
+                  InfixL (operator (printOp opConstructor) *> return (\a b -> F0OpExp opConstructor [a, b])) 
 
                 semicolon = 
                   InfixR (symbol ";" *> return (\a b -> F0Let (F0Value "_discard" Nothing a) b))
-        positioned p =   -- Source information for expressions can clutter up the AST a lot
-                         -- so right now I am removing it 
-            F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
+        positioned p = p
+            -- F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
 
 -- | Takes a tuple pattern and creates bindings for it in a subexpression e 
 desugarTuple :: [String] -> String -> F0Expression String Maybe -> F0Expression String Maybe 
@@ -233,7 +270,7 @@ typeVariable = char '\'' *> identifier <?> "type variable"
 
 -- | Parses a name and maybe a type assertion with it
 name :: Parser (String, Maybe F0Type)
-name = unitName <|> ((,) <$> identifier <*> typeAnnotation <|> parens name)
+name = unitName <|> ((,) <$> identifier <*> typeAnnotation <|> parens name) <?> "identifier"
   where unitName = ("_unit", Just $ F0PrimitiveType F0UnitType) <$ symbol "()"
 
 typeAnnotation :: Parser (Maybe F0Type)
@@ -243,6 +280,11 @@ typeAnnotation = optional (symbol ":" *> f0Type) <?> "type annotation"
 symbol :: String -> Parser String
 symbol = Lex.symbol sc
 
+opChar :: Parser Char
+opChar = choice (char <$> "!+-*/%@<>=")
+
+operator s = try (symbol s <* notFollowedBy opChar)
+
 stringLiteral :: Parser String
 stringLiteral = lexeme (char '"' >> manyTill Lex.charLiteral (char '"')) <?> "string" 
 charLiteral :: Parser Char 
@@ -250,7 +292,7 @@ charLiteral = lexeme (char '\'' >> (Lex.charLiteral <* char '\'')) <?> "characte
 
 -- | Parses an integer (the integer is not checked for being in bounds)
 integer :: Parser Integer 
-integer = lexeme (try $ char '0' >> char' 'x' >> Lex.hexadecimal) <|> lexeme Lex.decimal
+integer = lexeme (try $ char '0' >> char' 'x' >> Lex.hexadecimal) <|> lexeme Lex.decimal <?> "integer"
 
 identifier :: Parser String
 identifier = (lexeme . try) (p >>= check) <?> "identifier"
@@ -259,7 +301,7 @@ identifier = (lexeme . try) (p >>= check) <?> "identifier"
         identLetter = alphaNumChar <|> char '_' <|> char '\''
 
         check x = if x `elem` reservedWords
-                    then fail $ "'" ++ x ++ "' cannot be an identifier"
+                    then fail $ "'" ++ x ++ "' is a reserved word and cannot be an identifier"
                     else return x
 
 reserved :: String -> Parser ()
@@ -283,16 +325,16 @@ reservedWords = ["val",
                  "of",
                  "datatype"]
 
-parens, lexeme :: Parser a -> Parser a 
-parens = between (symbol "(") (symbol ")")
+parens, lexeme :: Show a => Parser a -> Parser a 
+parens p = between (try $ symbol "(" <* notFollowedBy (char '*')) (operator ")") p
 lexeme = Lex.lexeme sc 
 
 sc, lineComment, blockComment :: Parser () 
 sc = Lex.space space1 lineComment blockComment
 lineComment = do 
-  void $ string "--"
+  void $ try (string "--" <* notFollowedBy (char '@'))
   void $ manyTill anySingle (char '\n')
 
 blockComment = do 
-  void $ string "(*"
+  void $ try (string "(*" <* notFollowedBy (char '@'))
   void $ manyTill anySingle (string "*)")

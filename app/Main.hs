@@ -5,6 +5,7 @@ import Control.Monad
 
 import System.Environment
 import System.FilePath.Posix
+import System.Process 
 
 import qualified Options.Applicative as Opts
 
@@ -26,7 +27,6 @@ data CompilerOptions = CompilerOptions
     printAst :: Bool,
     printTypes :: Bool,
     printTransformed :: Bool,
-    dontTypecheck :: Bool,
     file :: FilePath
   }
 
@@ -34,7 +34,6 @@ compilerOptions = CompilerOptions
   <$> Opts.switch (Opts.long "print-ast" <> Opts.help "print out the AST after parsing")
   <*> Opts.switch (Opts.long "print-types" <> Opts.help "print out the types of the top level decls")
   <*> Opts.switch (Opts.long "print-transformed" <> Opts.help "print out the transformed program")
-  <*> Opts.switch (Opts.long "skip-typechecking" <> Opts.help "don't typecheck the program and skip to codegen instead")
   <*> (Opts.argument Opts.str (Opts.metavar "<input file>"))
 
 options = Opts.info (compilerOptions Opts.<**> Opts.helper) Opts.fullDesc
@@ -82,5 +81,9 @@ main = do
 
   when (printTransformed options) $ pPrint c0Program
 
-  let outputFileName = dropExtension inputFile ++ ".c1"
+  let basename = dropExtension inputFile
+      outputFileName = basename ++ ".c1"
   writeFile outputFileName (outputProgram c0Program)
+
+  -- Compile program using CC0 
+  callProcess "cc0" ["-o", basename, outputFileName] 

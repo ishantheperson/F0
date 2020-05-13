@@ -16,7 +16,7 @@ import LibraryBindings
 
 import Data.Functor.Identity
 
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, mapMaybe)
 import Data.List (sort)
 import Data.Set (Set)
 import qualified Data.Set as Set 
@@ -49,7 +49,11 @@ getSymbolType (TypeEnvironment env) name = Map.lookup name env
 
 instance Display TypeEnvironment where 
   display (TypeEnvironment e) = 
-    unlines $ flip map (Map.toList e) (\((Symbol (_, name)), (Forall _ t)) -> "val " ++ name ++ " : " ++ display t)
+    unlines $ flip mapMaybe (Map.toList e) (\((Symbol (_, name)), (Forall _ t)) -> 
+      case name of 
+        '_':_ -> Nothing 
+        _ -> Just $ "val " ++ name ++ " : " ++ display t
+      )
 
 data TypeErrorData = 
     Mismatch F0Type F0Type 

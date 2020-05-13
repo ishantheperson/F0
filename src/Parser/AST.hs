@@ -68,7 +68,11 @@ data F0Operator =
   | Times 
   | Divide
   | Equals
+  | NotEquals
   | LessThan
+  | LessEq
+  | GreaterThan
+  | GreaterEq  
   | Not 
   | And 
   | Or
@@ -119,7 +123,11 @@ operatorInput = \case
   Divide -> F0IntType 
 
   Equals -> F0IntType
+  NotEquals -> F0IntType
   LessThan -> F0IntType
+  LessEq -> F0IntType
+  GreaterThan -> F0IntType
+  GreaterEq -> F0IntType
 
   Not -> F0BoolType
   And -> F0BoolType
@@ -132,7 +140,11 @@ operatorOutput = \case
   Divide -> F0IntType 
 
   Equals -> F0BoolType
+  NotEquals -> F0BoolType
   LessThan -> F0BoolType
+  LessEq -> F0BoolType
+  GreaterThan -> F0BoolType
+  GreaterEq -> F0BoolType
 
   Not -> F0BoolType
   And -> F0BoolType
@@ -148,11 +160,15 @@ literalType = \case
 printOp :: F0Operator -> String 
 printOp = \case 
   Equals -> "=="
+  NotEquals -> "!="
   Plus -> "+"
   Minus -> "-"
   Times -> "*"
   Divide -> "/"
   Not -> "-"
   LessThan -> "<"
+  LessEq -> "<="
+  GreaterThan -> ">"
+  GreaterEq -> ">="
   And -> "&&"
   Or -> "||"

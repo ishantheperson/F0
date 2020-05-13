@@ -24,12 +24,6 @@ import qualified Data.Map.Lazy as Map
 
 import Control.Monad.State.Lazy 
 
-import Data.Functor.Identity 
-
-import GHC.Stack 
-import Debug.Trace 
-import Unsafe.Coerce
-
 -- Using F0PrimitiveType instead 
 -- data C0Type = ..
 
