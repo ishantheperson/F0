@@ -28,6 +28,7 @@ import LibraryBindings
 import Text.Printf 
 import Control.Monad.State.Strict
 
+import Data.Char (isAlphaNum)
 import Data.List (intercalate)
 import Data.Maybe (mapMaybe)
 
@@ -115,8 +116,10 @@ wrappedNativeName s = printf "f0_wrap_%s" s
 functionName :: Int -> String 
 functionName i = printf "f0_lambda%d" i
 
+-- | Gets a string representation of a symbol, removing any characters from
+-- the name which are not valid C0 identifier characters
 varName :: Symbol -> String 
-varName (Symbol (i, n)) = printf "f0_var_%s%d" n i 
+varName (Symbol (i, n)) = printf "f0_var_%s%d" (filter isAlphaNum n) i 
 
 functionHeaders :: [C0Function] -> String 
 functionHeaders = unlines . zipWith functionHeader [0..] 

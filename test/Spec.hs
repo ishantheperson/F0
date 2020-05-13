@@ -263,6 +263,9 @@ integrationTests = do
   it "correctly executes the list 'quick'sort testcase" $ 
     integrateTest "sort.sml"
 
+  it "correctly executes the queue testcase" $
+    integrateTest "queue.sml"
+
 main :: IO ()
 main = hspec $ do 
   context "Parser" $ do 

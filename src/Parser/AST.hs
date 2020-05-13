@@ -67,6 +67,7 @@ data F0Operator =
   | Minus
   | Times 
   | Divide
+  | Mod
   | Equals
   | NotEquals
   | LessThan
@@ -121,6 +122,7 @@ operatorInput = \case
   Minus -> F0IntType 
   Times -> F0IntType 
   Divide -> F0IntType 
+  Mod -> F0IntType
 
   Equals -> F0IntType
   NotEquals -> F0IntType
@@ -138,6 +140,7 @@ operatorOutput = \case
   Minus -> F0IntType 
   Times -> F0IntType 
   Divide -> F0IntType 
+  Mod -> F0IntType
 
   Equals -> F0BoolType
   NotEquals -> F0BoolType
@@ -165,6 +168,7 @@ printOp = \case
   Minus -> "-"
   Times -> "*"
   Divide -> "/"
+  Mod -> "%"
   Not -> "-"
   LessThan -> "<"
   LessEq -> "<="

@@ -27,6 +27,7 @@ data CompilerOptions = CompilerOptions
     printAst :: Bool,
     printTypes :: Bool,
     printTransformed :: Bool,
+    executeProgram :: Bool,
     file :: FilePath
   }
 
@@ -34,6 +35,7 @@ compilerOptions = CompilerOptions
   <$> Opts.switch (Opts.long "print-ast" <> Opts.help "print out the AST after parsing")
   <*> Opts.switch (Opts.long "print-types" <> Opts.help "print out the types of the top level decls")
   <*> Opts.switch (Opts.long "print-transformed" <> Opts.help "print out the transformed program")
+  <*> Opts.switch (Opts.long "execute" <> Opts.short 'x' <> Opts.help "execute the program if it compiels")
   <*> (Opts.argument Opts.str (Opts.metavar "<input file>"))
 
 options = Opts.info (compilerOptions Opts.<**> Opts.helper) Opts.fullDesc
@@ -87,3 +89,5 @@ main = do
 
   -- Compile program using CC0 
   callProcess "cc0" ["-o", basename, outputFileName] 
+  when (executeProgram options) $ 
+    callProcess ("./" ++ basename) []
