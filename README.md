@@ -75,6 +75,34 @@ fun tabulateIdx f n = tabulate (fn x => (x, f x)) n
 val main = sum (tabulate id 53)
 ```
 
+Contracts:
+```sml
+(*@requires 0 <= n && n < 17 @*)
+(*@ensures result > 0 *@)
+fun fact n = 
+  if n == 0 
+    then 1 
+    else n * fact (n - 1)
+
+(*@requires 0 <= n && n < 17 @*)
+(*@ensures result > 0 *@)
+fun bad_fact n = -1
+
+val main = 
+  printint $ fact 14;
+  print "\n";
+
+  -- Crashes at runtime
+  -- printint $ fact 20;
+  -- print "\n";
+
+  -- Also crashes at runtime
+  -- printint $ bad_fact 6;
+  -- print "\n";
+
+  0
+```
+
 ## Built-in functions
 ```sml
 print, println, printint : string -> unit 
