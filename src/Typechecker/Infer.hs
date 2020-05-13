@@ -30,9 +30,6 @@ import Control.Monad.Except
 import Text.Printf 
 import Text.Show.Pretty
 
-import GHC.Stack
-import Debug.Trace
-
 -- Based off of: http://dev.stephendiehl.com/fun/006_hindley_milner.html
 
 data Scheme = Forall [TypeVariable] F0Type deriving (Show, Eq)
@@ -177,8 +174,8 @@ instance TypeSubstitutable Constraint where
   subst s (range, t1, t2) = (range, subst s t1, subst s t2)
   freeTypeVariables (_, t1, t2) = freeTypeVariables t1 <> freeTypeVariables t2
 
-infer :: (HasCallStack, Infer m) => Maybe SourceRange -> F0Expression Symbol Maybe 
-                                       -> m (F0Expression Symbol Identity, (F0Type, [Constraint]))
+infer :: Infer m => Maybe SourceRange -> F0Expression Symbol Maybe 
+                 -> m (F0Expression Symbol Identity, (F0Type, [Constraint]))
 infer range e = case e of 
   F0ExpPos start e' end -> do
     (e', t) <- infer (Just (start, end)) e' 
@@ -280,7 +277,6 @@ infer range e = case e of
 
   F0Literal l -> return (F0Literal l, (literalType l, []))
 
--- runInfer :: TypeEnvironment -> StateT InferState (ReaderT TypeEnvironment (Except TypeError)) a -> Either TypeError a
 runInfer :: TypeEnvironment -> InferState -> StateT InferState (ReaderT TypeEnvironment (ExceptT e Identity)) a -> Either e (a, InferState)
 runInfer env state = runExcept . flip runReaderT env . flip runStateT state 
 
@@ -342,7 +338,6 @@ occursCheck a t = a `Set.member` freeTypeVariables t
 -- --------------------
 
 -- Returns 1) new list of decls 2) symbol-scheme pairs to add to the environment
--- ... -> m ([F0Declaration Symbol Identity], [(Symbol, Scheme)])
 checkDecl :: Infer m => Maybe SourceRange -> F0Declaration Symbol Maybe 
                      -> m ([F0Declaration Symbol Identity], [(Symbol, Scheme)], (Substitution, [Constraint]))
 checkDecl range d = do

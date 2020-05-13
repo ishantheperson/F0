@@ -129,7 +129,6 @@ f0Expression = makeExprParser (term >>= postfix) operators <?> "expression"
           reserved "of"
           optional $ symbol "|"
           rules <- sepBy1 caseRule (symbol "|")
-          optional $ reserved "end"
           return $ F0Case obj rules 
 
           where caseRule :: Parser (String, (String, F0Expression String Maybe))
