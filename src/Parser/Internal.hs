@@ -12,7 +12,6 @@ import Parser.AST
 
 import Text.Megaparsec 
 import Text.Megaparsec.Char
-import Text.Megaparsec.Debug 
 import qualified Text.Megaparsec.Char.Lexer as Lex
 import Control.Monad.Combinators.Expr
 
@@ -168,7 +167,7 @@ f0Expression = makeExprParser (term >>= postfix) operators <?> "expression"
                 caseRule = do 
                   constructor <- identifier 
                   x <- option Discard pat
-                  symbol "=>"
+                  operator "=>"
                   e <- f0Expression
                   let (var, desugared) = 
                         case x of 
@@ -202,6 +201,7 @@ f0Expression = makeExprParser (term >>= postfix) operators <?> "expression"
                       binOp NotEquals],
                      [binOp And],
                      [binOp Or],
+                     [InfixR (F0App <$ operator "$")],
                      [semicolon]]
           where prefixOp opString opConstructor = 
                   Prefix (operator opString *> return (\a -> F0OpExp opConstructor [a]))
@@ -209,7 +209,7 @@ f0Expression = makeExprParser (term >>= postfix) operators <?> "expression"
                   InfixL (operator (printOp opConstructor) *> return (\a b -> F0OpExp opConstructor [a, b])) 
 
                 semicolon = 
-                  InfixR (symbol ";" *> return (\a b -> F0Let (F0Value "_discard" Nothing a) b))
+                  InfixR (operator ";" *> return (\a b -> F0Let (F0Value "_discard" Nothing a) b))
         positioned p = p
             -- F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
 
@@ -290,7 +290,7 @@ stringLiteral = lexeme (char '"' >> manyTill Lex.charLiteral (char '"')) <?> "st
 charLiteral :: Parser Char 
 charLiteral = lexeme (char '\'' >> (Lex.charLiteral <* char '\'')) <?> "character"
 
--- | Parses an integer (the integer is not checked for being in bounds)
+-- | Parses an integer (the integer is not checked for being in range of a 32-bit signed int)
 integer :: Parser Integer 
 integer = lexeme (try $ char '0' >> char' 'x' >> Lex.hexadecimal) <|> lexeme Lex.decimal <?> "integer"
 
@@ -326,7 +326,7 @@ reservedWords = ["val",
                  "datatype"]
 
 parens, lexeme :: Show a => Parser a -> Parser a 
-parens p = between (try $ symbol "(" <* notFollowedBy (char '*')) (operator ")") p
+parens p = between (try $ symbol "(" <* notFollowedBy (char '*')) (symbol ")") p
 lexeme = Lex.lexeme sc 
 
 sc, lineComment, blockComment :: Parser () 
