@@ -83,7 +83,7 @@ val main = sum (tabulate id 53)
 Contracts:
 ```sml
 (*@requires 0 <= n && n < 17 @*)
-(*@ensures result > 0 *@)
+(*@ensures result > 0 @*)
 fun fact n = 
   if n == 0 
     then 1 
