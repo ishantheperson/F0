@@ -90,7 +90,7 @@ fun fact n =
     else n * fact (n - 1)
 
 (*@requires 0 <= n && n < 17 @*)
-(*@ensures result > 0 *@)
+(*@ensures result > 0 @*)
 fun bad_fact n = -1
 
 val main = 
