@@ -51,8 +51,15 @@ type Symbolizer m (a :: * -> (* -> *) -> *) (b :: * -> *) =
   SymbolContext m => SymbolMap -> Maybe SourceRange -> a String b -> m (a Symbol b)
 
 instance Display SymbolError where 
-  display (SymbolError (range, UnboundVariable x)) = 
-    printSourceRange range ++ ": unbound variable '" ++ x ++ "'"
+  display (SymbolError (range, err)) = 
+    display range ++ ": " ++ printSymbolErr err
+
+  displayIO (SymbolError (range, err)) = do 
+    rangeTxt <- displayIO range 
+    return $ unlines [rangeTxt, printSymbolErr err]
+
+printSymbolErr (UnboundVariable x) = 
+  "unbound variable '" ++ x ++ "'"
 
 -- | Creates a symbol and updates the new symbol number
 mkSymbol :: SymbolContext m => String -> m Symbol 

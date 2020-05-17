@@ -1,3 +1,4 @@
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -7,18 +8,62 @@
 module Parser.AST where 
 
 import Text.Megaparsec.Pos 
+import Text.Printf
 
 type SourceRange = (SourcePos, SourcePos)
 
 class Display a where 
   display :: a -> String 
+  displayIO :: a -> IO String 
+  displayIO = pure . display
 
 instance Display (Maybe SourceRange) where 
   display = printSourceRange
+    where printSourceRange Nothing = "<no position information available>"
+          printSourceRange (Just (start, end)) = sourcePosPretty start ++ " - " ++ sourcePosPretty end 
 
-printSourceRange :: Maybe SourceRange -> String 
-printSourceRange Nothing = "<no position information available>"
-printSourceRange (Just (start, end)) = sourcePosPretty start ++ " - " ++ sourcePosPretty end 
+  displayIO Nothing = pure "<no position information available>"
+  displayIO (Just (start, end)) = do 
+    -- Megaparsec source positions are indexed from 1 
+    -- Also show one more line before for context
+    let SourcePos fname (pred . unPos -> startLine) (pred . unPos -> startCol) = start 
+        SourcePos _ (pred . unPos -> endLine) (pred . unPos -> endCol) = end 
+    
+    fileLines <- lines <$> readFile fname 
+    let sourceTxt = if startLine == endLine 
+                      then showRange (fileLines !! startLine) (succ startLine) startCol endCol
+                      else
+                        let startLineTxt = fileLines !! startLine 
+                            otherLinesTxt = take (endLine - startLine) $ drop (startLine + 1) fileLines
+                        in  
+                          showRange startLineTxt (unPos $ sourceLine start) startCol (length startLineTxt) ++ "\n"
+                            ++ showRanges (succ . unPos $ sourceLine start) endCol otherLinesTxt
+
+    return $ printf "%s: %d.%d - %d.%d:\n\n%s%s\n" fname (unPos $ sourceLine start) (unPos $ sourceColumn start)
+                                                   (unPos $ sourceLine end) (unPos $ sourceColumn end)
+                                                   (if startLine == 0 then ""
+                                                    else showRange (fileLines !! (startLine - 1)) startLine 0 0 ++ "\n")
+                                                   sourceTxt                      
+        
+    where green = "\x1b[32m"
+          boldRed = "\x1b[1m\x1b[31m"
+          reset = "\x1b[0m"
+          predZ x = if x == 0 then 0 else pred x  
+
+          showRange :: String -> Int -> Int -> Int -> String
+          showRange line num start end = 
+            let 
+              front = take start line 
+              mid = take (end - start) $ drop start line 
+              back = drop end line 
+            in 
+              printf "%s%4d |%s %s%s%s%s%s" green num reset front boldRed mid reset back 
+
+          showRanges :: Int -> Int -> [String] -> String
+          showRanges lineNum end = \case 
+            [] -> error "showRanges: empty argument"
+            [line] -> showRange line lineNum 0 end 
+            x:xs -> showRange x lineNum 0 (length x) ++ "\n" ++ showRanges (succ lineNum) end xs 
 
 -- | Type of a declaration where identifiers
 -- are represented by type "symbol". This lets

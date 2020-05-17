@@ -29,7 +29,7 @@ declNames = zip . mapMaybe declName
 -- and returns the free variables of an expression and their types
 freeVariables :: Ord s => F0Expression s f -> Set s 
 freeVariables = \case
-  F0Lambda name t e -> name `Set.delete` freeVariables e
+  F0Lambda name _ e -> name `Set.delete` freeVariables e
   F0App e1 e2 -> freeVariables e1 <> freeVariables e2 
   F0Identifier x -> Set.singleton x 
   F0Literal _ -> Set.empty 
@@ -40,11 +40,13 @@ freeVariables = \case
   F0TupleAccess _ _ e -> freeVariables e 
   F0TagValue _ _ e -> freeVariables e
   F0Case obj arms -> freeVariables obj <> Set.unions (map (\(_, (x, e)) -> x `Set.delete` freeVariables e) arms)
-  F0Let d e -> freeVariables (exprFromDecl d) <> freeVariables e 
-  where exprFromDecl = \case 
-          F0Value _ _ e -> e 
-          F0Fun _ _ _ e -> e 
-          F0DeclPos _ d _ -> exprFromDecl d 
+  F0Let d e -> freeVariablesDecl d <> freeVariables e 
+  F0TypeAssertion{} -> error "Type assertion is not supported"
+  where freeVariablesDecl = \case 
+          F0Value _ _ e -> freeVariables e 
+          F0Fun _ _ _ e -> freeVariables e 
+          F0Data {} -> Set.empty
+          F0DeclPos _ d _ -> freeVariablesDecl d 
 
 class TypeSubstitutable a where 
   subst :: Substitution -> a -> a 
@@ -78,11 +80,11 @@ instance TypeSubstitutable F0Type where
 normalizeSubst :: TypeSubstitutable a => a -> Substitution
 normalizeSubst t = 
   let vars = Set.toList $ freeTypeVariables t 
-      subst = zipWith (\v i -> (v, F0TypeVariable (names !! i))) vars [0..]
-  in Map.fromList subst
+      sub = zipWith (\v i -> (v, F0TypeVariable (names !! i))) vars [0..]
+  in Map.fromList sub
   where names :: [String]
         names = map pure ['a'..'z'] ++ do 
-          i <- [1..]
+          i <- [1..] :: [Int]
           j <- ['a'..'z']
           return (j : show i)
 

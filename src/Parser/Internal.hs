@@ -5,7 +5,6 @@ module Parser.Internal where
 import Data.Void 
 
 import Data.List (partition)
-import Data.Maybe (catMaybes)
 import Control.Monad (void)
 
 import Parser.AST 
@@ -16,7 +15,6 @@ import qualified Text.Megaparsec.Char.Lexer as Lex
 import Control.Monad.Combinators.Expr
 
 type Parser = Parsec Void String 
--- type Parser = ParsecT Void String (Writer [ParseError String Void])
 
 f0Decls :: Parser [F0Declaration String Maybe]
 f0Decls = concat <$> many f0Decl
@@ -32,8 +30,10 @@ f0Decls = concat <$> many f0Decl
           return Nothing -}
 
 data ContractType = Requires | Ensures deriving Show 
+isRequires :: ContractType -> Bool
 isRequires Requires = True 
 isRequires Ensures = False
+
 data Pattern = Name String | Tuple [String] | Discard deriving Show
 
 -- | May generate multiple bindings as a result of a tuple binding
@@ -124,7 +124,7 @@ f0Decl = positioned (fun <|> val <|> datatype)
             return $ map (\d -> F0DeclPos start d end) decls 
 
 f0Expression :: Parser (F0Expression String Maybe)
-f0Expression = makeExprParser (term >>= postfix) operators <?> "expression"
+f0Expression = positioned (makeExprParser (term >>= postfix) operators) <?> "expression"
   where f0Lambda = do 
           name <- reserved "fn" *> pat 
           e <- symbol "=>" *> f0Expression
@@ -211,8 +211,7 @@ f0Expression = makeExprParser (term >>= postfix) operators <?> "expression"
 
                 semicolon = 
                   InfixR (operator ";" *> return (\a b -> F0Let (F0Value "_discard" Nothing a) b))
-        positioned p = p
-            -- F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
+        positioned p = F0ExpPos <$> getSourcePos <*> p <*> getSourcePos
 
 -- | Takes a tuple pattern and creates bindings for it in a subexpression e 
 desugarTuple :: [String] -> String -> F0Expression String Maybe -> F0Expression String Maybe 

@@ -65,10 +65,17 @@ data TypeErrorData =
 newtype TypeError = TypeError (Maybe SourceRange, TypeErrorData) deriving (Show, Eq)
 
 instance Display TypeError where 
-  display (TypeError (range, (Mismatch a b))) = 
-    printf "%s: couldn't match type %s with %s" (printSourceRange range) (display a) (display b)
-  display (TypeError (range, (InfiniteType a b))) =
-    printf "%s: found infinite type when trying to solve '%s ~ %s'" (printSourceRange range) a (display b)
+  display (TypeError (range, err)) = 
+    unlines [display range ++ ":", printTypeError err]
+  
+  displayIO (TypeError (range, err)) = do 
+    rangeTxt <- displayIO range 
+    return $ unlines [rangeTxt, printTypeError err]
+
+printTypeError (Mismatch a b) =
+    printf "couldn't match types: %s ~ %s" (display a) (display b)
+printTypeError (InfiniteType a b) = 
+    printf "found infinite type when trying to solve: %s ~ %s" a (display b)
 
 data InferState = InferState 
   {

@@ -266,6 +266,9 @@ integrationTests = do
   it "correctly executes the queue testcase" $
     integrateTest "queue.sml"
 
+  it "correctly executed the either monad testcase" $ 
+    integrateTest "monad.sml"
+
 main :: IO ()
 main = hspec $ do 
   context "Parser" $ do 

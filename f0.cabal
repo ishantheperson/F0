@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 45444a390adfe97268b3d4f46fcf5174b7a027030e86045487e1858f04f1b1e8
+-- hash: 9496dbf5136dde5d34c77c34b8e8700e416613fc94764484fd166f85aae1e260
 
 name:           f0
 version:        0.1.0.0
@@ -33,6 +33,7 @@ library
       LibraryBindings
       Parser.AST
       Parser.ASTUtil
+      Parser.Imports
       Parser.Internal
       Typechecker.Infer
   other-modules:
