@@ -3,10 +3,15 @@
 MiniML implementation which compiles to C0
 
 ## Usage
+The `f0` compiler is already installed on Andrew Linux at `~ibhargav/public/f0`. It can be compiled from source using:
 ```
 % stack build
-% stack install # optional
-% f0 -h # or stack run -- -h if you don't want ot install
+% stack install 
+```
+
+Running:
+```
+% f0 -h # or stack run -- -h if you don't want to install
 Usage: f0 [--print-ast] [--print-types] [--print-transformed] [-x|--execute]
           [-s|--save-files] [-O] <input file>
 
@@ -78,14 +83,14 @@ val main = sum (tabulate id 53)
 Contracts:
 ```sml
 (*@requires 0 <= n && n < 17 @*)
-(*@ensures result > 0 *@)
+(*@ensures result > 0 @*)
 fun fact n = 
   if n == 0 
     then 1 
     else n * fact (n - 1)
 
 (*@requires 0 <= n && n < 17 @*)
-(*@ensures result > 0 *@)
+(*@ensures result > 0 @*)
 fun bad_fact n = -1
 
 val main = 
