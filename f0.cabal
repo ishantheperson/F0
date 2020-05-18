@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9496dbf5136dde5d34c77c34b8e8700e416613fc94764484fd166f85aae1e260
+-- hash: 0fe13edd65f1dfa2ee072b9a0ac1bc52e4889a5c087681f2ec56aca2091ca390
 
 name:           f0
 version:        0.1.0.0
@@ -45,6 +45,7 @@ library
     , containers
     , directory
     , filepath
+    , hscolour
     , hspec
     , megaparsec
     , mtl
@@ -67,6 +68,7 @@ executable f0
     , directory
     , f0
     , filepath
+    , hscolour
     , hspec
     , megaparsec
     , mtl
@@ -90,6 +92,7 @@ test-suite f0-test
     , directory
     , f0
     , filepath
+    , hscolour
     , hspec
     , megaparsec
     , mtl

@@ -77,7 +77,6 @@ data F0Declaration symbol typeInfo =
   | F0DeclPos SourcePos (F0Declaration symbol typeInfo) SourcePos 
 
 data F0Expression symbol typeInfo = 
-    -- F0Fix symbol (typeInfo F0Type) (F0Expression symbol typeInfo) -- ^ fix Name as Expression 
     F0Lambda symbol (typeInfo F0Type) (F0Expression symbol typeInfo) -- ^ fn x (: t) => etc 
   | F0App (F0Expression symbol typeInfo) (F0Expression symbol typeInfo) -- ^ e1 e2 
   | F0Let (F0Declaration symbol typeInfo) (F0Expression symbol typeInfo) -- ^ let decl in e end. Multiple decls become nested lets

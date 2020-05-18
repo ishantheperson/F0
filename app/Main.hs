@@ -13,7 +13,10 @@ import System.Process
 import qualified Options.Applicative as Opts
 
 import Text.Megaparsec
+
 import Text.Show.Pretty 
+import Language.Haskell.HsColour
+import Language.Haskell.HsColour.Colourise
 
 import Parser.AST 
 import Parser.ASTUtil 
@@ -64,7 +67,7 @@ main = do
                    fail "Parsing failed"
 
                  Right ast -> do 
-                   when printAst (pPrint ast)
+                   when printAst (colorPrint (removePositionInfo ast))
                    return ast 
 
   -- Insert main value (_main)
@@ -77,7 +80,7 @@ main = do
                     fail "Symbolization failed"
 
                   Right ast -> do 
-                    when printAst (pPrint ast)
+                    when printAst (colorPrint (removePositionInfo ast))
                     return ast 
 
   -- typeAST has funs converted into vals 
@@ -88,7 +91,7 @@ main = do
 
                           Right results -> return results 
 
-  when printAst $ pPrint typeAST
+  when printAst $ colorPrint (removePositionInfo typeAST)
   when (printTypes || onlyTypecheck) $ putStr $ display typeEnv 
 
   when onlyTypecheck exitSuccess
@@ -96,7 +99,7 @@ main = do
   let e = programToExpression typeAST 
   let c0Program = runCodegen (codegenExpr [] e)
 
-  when printTransformed $ pPrint c0Program
+  when printTransformed $ colorPrint c0Program
 
   -- Write output file 
   let basename = dropExtension inputFile
@@ -120,3 +123,6 @@ main = do
 
   -- If requested, execute the program
   when executeProgram $ callProcess ("./" ++ basename) []
+
+colorPrint :: Show a => a -> IO () 
+colorPrint = putStrLn . hscolour TTY defaultColourPrefs False False "" False . ppShow 

@@ -130,6 +130,7 @@ instance RemovablePosition (F0Declaration s t) where
   removePositionInfo (F0DeclPos _ decl _) = removePositionInfo decl 
   removePositionInfo (F0Value name t e) = F0Value name t (removePositionInfo e)
   removePositionInfo (F0Fun name args t e) = F0Fun name args t (removePositionInfo e)
+  removePositionInfo (d@(F0Data {})) = d 
 
 instance RemovablePosition (F0Expression s t) where 
   removePositionInfo (F0ExpPos _ e _) = removePositionInfo e 
@@ -141,6 +142,8 @@ instance RemovablePosition (F0Expression s t) where
   removePositionInfo (F0Let d e) = F0Let (removePositionInfo d) (removePositionInfo e)
   removePositionInfo (F0Tuple es) = F0Tuple (removePositionInfo es)
   removePositionInfo (F0TupleAccess i n e) = F0TupleAccess i n (removePositionInfo e)
+  removePositionInfo (F0TagValue tag i e) = F0TagValue tag i (removePositionInfo e)
+  removePositionInfo (F0Case obj rules) = F0Case (removePositionInfo obj) $ map (\(tag, (x, e)) -> (tag, (x, removePositionInfo e))) rules
   removePositionInfo other = other 
 
 instance RemovablePosition a => RemovablePosition [a] where 

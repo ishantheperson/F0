@@ -36,10 +36,10 @@ data C0VariableReference =
 data C0Expression = 
     C0Box F0PrimitiveType C0Expression -- ^ allocates primitive type and casts to void*
   | C0Unbox F0PrimitiveType C0Expression -- ^ Uncast primitive type and dereference to target type
-  | C0CallClosure C0Expression C0Expression -- ^ cast closure to f0_closure*, call function pointer with closure + arg
+  | C0CallClosure C0Expression C0Expression -- ^ cast closure to f0_closure*, call function pointer with closure + boxed arg
   | C0NativeFn String -- ^ Represents a native function wrapper 
-  | C0Op F0Operator [C0Expression] -- ^ Operates on UNBOXED values
-  | C0If C0Expression C0Expression C0Expression -- ^ If-expression. Condition should be UNBOXED bool
+  | C0Op F0Operator [C0Expression] -- ^ Operate on unboxed values
+  | C0If C0Expression C0Expression C0Expression -- ^ If-expression. Condition should be unboxed bool
 
    -- | Turning a function into a value. The int identifies which function (as lambdas for example are unnamed)
    -- The ints inside the tuple identify which index in the closure that argument should be written to 

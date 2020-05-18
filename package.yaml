@@ -31,6 +31,7 @@ dependencies:
 - filepath
 - process
 - directory
+- hscolour
 
 library:
   source-dirs: src
