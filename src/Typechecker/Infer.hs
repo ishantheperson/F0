@@ -50,11 +50,13 @@ getSymbolType (TypeEnvironment env) name = Map.lookup name env
 
 instance Display TypeEnvironment where 
   display (TypeEnvironment e) = 
-    unlines $ flip mapMaybe (Map.toList e) (\((Symbol (_, name)), (Forall _ t)) -> 
+    unlines $ flip mapMaybe (Map.toList e) (\(Symbol (_, name), Forall _ t) -> 
       case name of 
         '_':_ -> Nothing -- Ignore generated items (they start with an underscore)
-        _ -> Just $ "val " ++ name ++ " : " ++ display t
+        _ -> Just $ magenta ++ "val " ++ reset ++ name ++ " : " ++ display t
       )
+    where magenta = "\x1b[35m"
+          reset = "\x1b[0m"
 
 data TypeErrorData = 
     Mismatch F0Type F0Type 
@@ -247,7 +249,7 @@ infer range e = case e of
     let armTyConstraints = zipWith (range,,) armTys (drop 1 armTys)
         constraints = [(range, objt, F0TypeCons (F0TypeTuple names) tycon)] ++ armTyConstraints ++ objc ++ c 
     
-    return (F0Case obj $ zipWith (\(constr, (x, _)) e -> (constr, (x, e))) rules arms, (armTys !! 0, constraints))
+    return (F0Case obj $ zipWith (\(constr, (x, _)) e -> (constr, (x, e))) rules arms, (head armTys, constraints))
 
     where unbind :: Scheme -> Scheme 
           unbind (Forall tvs t) = Forall [] t 
@@ -302,13 +304,12 @@ unify range (F0TypeVariable a) t = bind range a t
 unify range t (F0TypeVariable a) = bind range a t
 unify range (F0PrimitiveType a) (F0PrimitiveType b) | a == b = return emptySubstitution 
 unify range (a `F0Function` b) (c `F0Function` d) = unifies range [a, b] [c, d]
-unify range (F0TupleType t1s) (F0TupleType t2s) | length t1s == length t2s = do 
+unify range (F0TupleType t1s) (F0TupleType t2s) | length t1s == length t2s = 
   unifies range t1s t2s 
-
-unify range (F0TypeCons t1 a) (F0TypeCons t2 b) | a == b = unify range t1 t2 
-unify range (F0TypeTuple t1s) (F0TypeTuple t2s) | length t1s == length t2s = do 
+unify range (F0TypeCons t1 a) (F0TypeCons t2 b) | a == b = 
+  unify range t1 t2 
+unify range (F0TypeTuple t1s) (F0TypeTuple t2s) | length t1s == length t2s = 
   unifies range t1s t2s
-
 unify range t1 t2 = do 
   throwError $ TypeError (range, Mismatch t1 t2)
   return emptySubstitution 
@@ -380,7 +381,7 @@ checkDecl range d = do
 
                         in (F0Value constrName (Identity ft) e, Forall tvs ft, Forall tvs t) 
     
-          constructorNames = fst $ unzip constructors 
+          constructorNames = map fst constructors 
 
       addConstructors name (declNames constructorFunctions valSchemes)
       st <- get 

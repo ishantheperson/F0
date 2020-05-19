@@ -94,15 +94,19 @@ printType t = printType' $ subst (normalizeSubst t) t
 -- | Prints out a type without normalizing the type variables
 printType' :: F0Type -> String 
 printType' = \case 
-  F0PrimitiveType p -> display p 
+  F0PrimitiveType p -> cyan ++ display p ++ reset
   F0TypeVariable a -> "'" ++ a 
   F0Function a@(F0Function _ _) b -> printf "(%s) -> %s" (printType' a) (printType' b) 
   F0Function a b -> printf "%s -> %s" (printType' a) (printType' b) 
   F0TupleType ts -> "(" ++ intercalate " * " (map printType' ts) ++ ")"
   F0TypeTuple [t] -> printType' t
-  F0TypeTuple ts -> "(" ++ intercalate " * " (map printType' ts) ++ ")"
-  F0TypeCons (F0TypeTuple []) n -> n 
-  F0TypeCons t1 n -> printf "%s %s" (printType' t1) n 
+  F0TypeTuple ts -> "(" ++ intercalate ", " (map printType' ts) ++ ")"
+  F0TypeCons (F0TypeTuple []) n -> green ++ n ++ reset 
+  F0TypeCons t1 n -> printf "%s %s" (printType' t1) (green ++ n ++ reset) 
+
+  where cyan = "\x1b[36m"
+        reset = "\x1b[0m"
+        green = "\x1b[32m"
 
 instance Display F0PrimitiveType where 
   display = printPrimitiveType

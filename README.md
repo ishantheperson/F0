@@ -1,6 +1,6 @@
-# f0
+# F0 Programming Language
 
-MiniML implementation which compiles to C0
+MiniML implementation which compiles to C1(VM)
 
 ## Usage
 The `f0` compiler is already installed on Andrew Linux at `~ibhargav/public/f0`. It can be compiled from source using:
@@ -12,18 +12,22 @@ The `f0` compiler is already installed on Andrew Linux at `~ibhargav/public/f0`.
 Running:
 ```
 % f0 -h # or stack run -- -h if you don't want to install
-Usage: f0 [--print-ast] [--print-types] [--print-transformed] [-x|--execute]
-          [-s|--save-files] [-O] <input file>
+Usage: f0 [--print-ast] [--print-types] [--print-transformed] [-O]
+          [-x|--execute] [-t|--only-typecheck] [-s|--save-files] [-c <arg>]
+          <input file>
 
 Available options:
   --print-ast              print out the AST at various points during
                            compilation
   --print-types            print out the types of the top level decls
   --print-transformed      print out the transformed program
-  -x,--execute             execute the program if it compiles
-  -s,--save-files          save the generated C1 code
   -O                       optimize by passing -O2 to the C compiler
+  -x,--execute             execute the program if it compiles
+  -t,--only-typecheck      stop after typechecking. implies --print-types
+  -s,--save-files          save the generated C1 code
+  -c <arg>                 pass an option to CC0
   -h,--help                Show this help text
+
 % f0 <file.sml> # generates executable "file"
 % f0 -x <file.sml> # run "file.sml"
 % f0 -s <file.sml> # create "file.c1" for inspection of generated code
@@ -36,7 +40,7 @@ Supported features:
  - `let` expressions with local `datatype` declarations
  - Line comments with `--` 
  - Block comments with `(*` 
- - **Dynamically checked contracts** using `(*@requires ... @*)` or `(*ensures ... @*)` 
+ - **Dynamically checked contracts** using `(*@requires ... @*)` or `(*@ensures ... @*)` 
  - See `test/testcases/` or `test/Spec.hs` for examples
  - Tuples and tuple patterns (no recursive patterns)
  - Sum types
@@ -106,6 +110,37 @@ val main =
   -- print "\n";
 
   0
+```
+
+Polymorphism:
+```sml
+datatype ('a, 'b) either = Left of 'a | Right of 'b 
+
+fun bind x f = 
+  case x of 
+    Left e => Left e  
+  | Right x => f x
+
+fun return x = Right x 
+
+fun validate_int x = 
+  if x <= 0
+    then Left "Numbers must be positive"
+    else 
+      print "Validated ";
+      printint x;
+      print "\n";
+      Right x 
+
+fun try_add x y =
+  bind (validate_int x) $ fn a => 
+  bind (validate_int y) $ fn b => 
+  return $ string_fromint $ a + b 
+
+val main = 
+  case try_add (4) (-3) of 
+    Left e => println e ; 1
+  | Right a => print a ; println "" ; 0
 ```
 
 ## Built-in functions

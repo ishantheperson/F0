@@ -42,15 +42,15 @@ data CompilerOptions = CompilerOptions
   }
 
 compilerOptions = do 
-  printAst <- Opts.switch (Opts.long "print-ast" <> Opts.help "print out the AST at various points during compilation")
-  printTypes <- Opts.switch (Opts.long "print-types" <> Opts.help "print out the types of the top level decls")
+  printAst         <- Opts.switch (Opts.long "print-ast" <> Opts.help "print out the AST at various points during compilation")
+  printTypes       <- Opts.switch (Opts.long "print-types" <> Opts.help "print out the types of the top level decls")
   printTransformed <- Opts.switch (Opts.long "print-transformed" <> Opts.help "print out the transformed program")
-  optimize <- Opts.switch (Opts.short 'O' <> Opts.help "optimize by passing -O2 to the C compiler")
-  executeProgram <- Opts.switch (Opts.long "execute" <> Opts.short 'x' <> Opts.help "execute the program if it compiles")
-  onlyTypecheck <- Opts.switch (Opts.long "only-typecheck" <> Opts.short 't' <> Opts.help "stop after typechecking. implies --print-types")
-  keepC1 <- Opts.switch (Opts.long "save-files" <> Opts.short 's' <> Opts.help "save the generated C1 code")
-  extraCC0Opts <- Opts.many (Opts.strOption (Opts.short 'c' <> Opts.metavar "<arg>" <> Opts.help "pass an option to CC0"))
-  file <- (Opts.argument Opts.str (Opts.metavar "<input file>"))
+  optimize         <- Opts.switch (Opts.short 'O' <> Opts.help "optimize by passing -O2 to the C compiler")
+  executeProgram   <- Opts.switch (Opts.long "execute" <> Opts.short 'x' <> Opts.help "execute the program if it compiles")
+  onlyTypecheck    <- Opts.switch (Opts.long "only-typecheck" <> Opts.short 't' <> Opts.help "stop after typechecking. implies --print-types")
+  keepC1           <- Opts.switch (Opts.long "save-files" <> Opts.short 's' <> Opts.help "save the generated C1 code")
+  extraCC0Opts     <- Opts.many   (Opts.strOption (Opts.short 'c' <> Opts.metavar "<arg>" <> Opts.help "pass an option to CC0"))
+  file             <- Opts.argument Opts.str (Opts.metavar "<input file>")
   return $ CompilerOptions{..}
 
 options = Opts.info (compilerOptions Opts.<**> Opts.helper) Opts.fullDesc

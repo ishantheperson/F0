@@ -252,9 +252,7 @@ f0Type = makeExprParser (term >>= postfixA) operators <?> "type"
           ts <- some (symbol "*" *> (term >>= postfixB))  
           return $ F0TupleType (e:ts)
 
-        typeApp e next = 
-             (identifier >>= \name -> next (F0TypeCons e name))
-          --foldl F0TypeCons e <$> some term 
+        typeApp e next = identifier >>= \name -> next (F0TypeCons e name)
 
         operators = [[InfixR (F0Function <$ symbol "->")]]
 
@@ -326,7 +324,7 @@ reservedWords = ["val",
                  "datatype"]
 
 parens, lexeme :: Show a => Parser a -> Parser a 
-parens p = between (try $ symbol "(" <* notFollowedBy (char '*')) (symbol ")") p
+parens = between (try $ symbol "(" <* notFollowedBy (char '*')) (symbol ")")
 lexeme = Lex.lexeme sc 
 
 sc, lineComment, blockComment :: Parser () 
