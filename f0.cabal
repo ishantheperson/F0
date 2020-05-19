@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0fe13edd65f1dfa2ee072b9a0ac1bc52e4889a5c087681f2ec56aca2091ca390
+-- hash: d8b0f3dca014b5302cae67abec393d7140deb6ca0a3dd5aea0c2f8f34518c574
 
 name:           f0
 version:        0.1.0.0
@@ -53,6 +53,7 @@ library
     , parser-combinators
     , pretty-show
     , process
+    , recursion-schemes
   default-language: Haskell2010
 
 executable f0
@@ -61,7 +62,6 @@ executable f0
       Paths_f0
   hs-source-dirs:
       app
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
     , containers
@@ -76,6 +76,7 @@ executable f0
     , parser-combinators
     , pretty-show
     , process
+    , recursion-schemes
   default-language: Haskell2010
 
 test-suite f0-test
@@ -85,7 +86,6 @@ test-suite f0-test
       Paths_f0
   hs-source-dirs:
       test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
     , containers
@@ -100,4 +100,5 @@ test-suite f0-test
     , parser-combinators
     , pretty-show
     , process
+    , recursion-schemes
   default-language: Haskell2010

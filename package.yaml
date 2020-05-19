@@ -32,6 +32,7 @@ dependencies:
 - process
 - directory
 - hscolour
+- recursion-schemes
 
 library:
   source-dirs: src
@@ -40,10 +41,8 @@ executables:
   f0:
     main:                Main.hs
     source-dirs:         app
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+    # No multithreading for our app 
+    #ghc-options:
     dependencies:
     - f0
 
@@ -51,9 +50,6 @@ tests:
   f0-test:
     main:                Spec.hs
     source-dirs:         test
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+    #ghc-options:
     dependencies:
     - f0

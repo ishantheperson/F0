@@ -1,14 +1,19 @@
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE ExplicitForAll #-}
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Parser.AST where 
 
 import Text.Megaparsec.Pos 
 import Text.Printf
+
+import Data.Functor.Foldable.TH
 
 type SourceRange = (SourcePos, SourcePos)
 
@@ -218,3 +223,5 @@ printOp = \case
   GreaterEq -> ">="
   And -> "&&"
   Or -> "||"
+
+makeBaseFunctor ''F0Expression

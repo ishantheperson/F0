@@ -14,8 +14,6 @@ import Codegen.Symbolize (Symbol(..))
 
 import LibraryBindings
 
-import Data.Functor.Identity
-
 import Data.Maybe (fromJust, mapMaybe)
 import Data.List (sort)
 import Data.Set (Set)
@@ -23,12 +21,15 @@ import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map 
 
+import Data.Functor.Identity
+import Data.Functor.Foldable hiding (fold)
+import Data.Foldable (fold)
+
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Monad.Except
 
 import Text.Printf 
-import Text.Show.Pretty
 
 -- Based off of: http://dev.stephendiehl.com/fun/006_hindley_milner.html
 
@@ -51,7 +52,7 @@ instance Display TypeEnvironment where
   display (TypeEnvironment e) = 
     unlines $ flip mapMaybe (Map.toList e) (\((Symbol (_, name)), (Forall _ t)) -> 
       case name of 
-        '_':_ -> Nothing 
+        '_':_ -> Nothing -- Ignore generated items (they start with an underscore)
         _ -> Just $ "val " ++ name ++ " : " ++ display t
       )
 
@@ -60,6 +61,7 @@ data TypeErrorData =
   | InfiniteType TypeVariable F0Type
   | NotConstructor String 
   | ConstructorsDontMatch
+  | ConstructorNotFound
   deriving (Show, Eq)  
 
 newtype TypeError = TypeError (Maybe SourceRange, TypeErrorData) deriving (Show, Eq)
@@ -76,6 +78,10 @@ printTypeError (Mismatch a b) =
     printf "couldn't match types: %s ~ %s" (display a) (display b)
 printTypeError (InfiniteType a b) = 
     printf "found infinite type when trying to solve: %s ~ %s" a (display b)
+printTypeError ConstructorsDontMatch = 
+    "constructors aren't all from the same datatype"
+printTypeError ConstructorNotFound = 
+    "expected a datatype constructor in case rule"
 
 data InferState = InferState 
   {
@@ -105,10 +111,12 @@ addConstructors typeName ctors =
 
 -- | Given a constructor name, gets the type of the constructor
 -- as well as the other constructors of that type 
-getConstructors :: Infer m => Symbol -> m (String, [(Symbol, Scheme)])
-getConstructors ctor = do 
+getConstructors :: Infer m => Maybe SourceRange -> Symbol -> m (String, [(Symbol, Scheme)])
+getConstructors range ctor = do 
   ctors <- gets constructors 
-  return $ ctors Map.! ctor 
+  case Map.lookup ctor ctors of 
+    Just entry -> return entry 
+    Nothing -> throwError $ TypeError (range, ConstructorNotFound)
 
 -- | Substituting into a scheme respects which variables are bound in the quantification
 instance TypeSubstitutable Scheme where 
@@ -126,31 +134,13 @@ instance TypeSubstitutable TypeEnvironment where
   freeTypeVariables (TypeEnvironment env) = freeTypeVariables (Map.elems env)
 
 instance TypeSubstitutable (F0Expression Symbol Identity) where 
-  subst s = \case 
-    F0Lambda x (Identity t) e -> F0Lambda x (Identity $ subst s t) (subst s e)
-    F0App e1 e2 -> F0App (subst s e1) (subst s e2)
-    F0OpExp op es -> F0OpExp op (subst s es)
-    F0If e1 e2 e3 -> F0If (subst s e1) (subst s e2) (subst s e3)
-    F0TypeAssertion e t -> F0TypeAssertion (subst s e) (subst s t)
-    F0ExpPos start e end -> F0ExpPos start (subst s e) end 
-    F0Let d e -> F0Let d (subst s e) -- TODO: substitute into d as well? 
-    F0Tuple es -> F0Tuple (subst s es)
-    F0TupleAccess i n e -> F0TupleAccess i n (subst s e)
-    F0Case obj rules -> F0Case (subst s obj) (map (\(constr, (x, e)) -> (constr, (x, subst s e))) rules)
-    other -> other 
+  subst s = cata go 
+    where go (F0LambdaF x (Identity t) e) = F0Lambda x (Identity $ subst s t) e 
+          go e = embed e  
 
-  freeTypeVariables = \case 
-    F0Lambda x (Identity t) e -> freeTypeVariables t <> freeTypeVariables e
-    F0App e1 e2 -> freeTypeVariables e1 <> freeTypeVariables e2
-    F0OpExp op es -> Set.unions (freeTypeVariables <$> es)
-    F0If e1 e2 e3 -> Set.unions (freeTypeVariables <$> [e1, e2, e3])
-    F0TypeAssertion e t -> freeTypeVariables t <> freeTypeVariables e
-    F0ExpPos start e end -> freeTypeVariables e 
-    F0Let d e -> freeTypeVariables e 
-    F0Tuple es -> Set.unions (freeTypeVariables <$> es)
-    F0TupleAccess _ _ e -> freeTypeVariables e
-    F0Case obj rules -> freeTypeVariables obj <> Set.unions (map (\(_, (_, e)) -> freeTypeVariables e) rules)
-    other -> Set.empty  
+  freeTypeVariables = cata go 
+    where go (F0LambdaF _ (Identity t) e) = freeTypeVariables t <> e 
+          go other = fold other 
 
 -- Removes quantifiers 
 instantiate :: Infer m => Scheme -> m F0Type 
@@ -226,7 +216,7 @@ infer range e = case e of
   F0Case obj rules -> do 
     -- Check all labels are from the same type
     let actualLabels = Set.fromList $ fst <$> rules 
-    (tycon, labelsWithTypes) <- getConstructors (fst $ head rules)
+    (tycon, labelsWithTypes) <- getConstructors range (fst $ head rules)
     let realLabels = Set.fromList $ fst <$> labelsWithTypes
 
     unless (actualLabels `Set.isSubsetOf` realLabels) $ throwError (TypeError (range, ConstructorsDontMatch))

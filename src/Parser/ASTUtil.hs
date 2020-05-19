@@ -12,6 +12,9 @@ import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map 
 
+import Data.Foldable (fold)
+import Data.Functor.Foldable hiding (fold)
+
 import Text.Printf
 
 declName :: F0Declaration symbol typeInfo -> Maybe symbol 
@@ -27,22 +30,15 @@ declNames = zip . mapMaybe declName
 -- | Takes an expression, a map from 
 -- identifiers to their types (the context at this point)
 -- and returns the free variables of an expression and their types
-freeVariables :: Ord s => F0Expression s f -> Set s 
-freeVariables = \case
-  F0Lambda name _ e -> name `Set.delete` freeVariables e
-  F0App e1 e2 -> freeVariables e1 <> freeVariables e2 
-  F0Identifier x -> Set.singleton x 
-  F0Literal _ -> Set.empty 
-  F0OpExp _ es -> Set.unions (freeVariables <$> es)
-  F0ExpPos _ e _ -> freeVariables e 
-  F0If e1 e2 e3 -> Set.unions (freeVariables <$> [e1, e2, e3])
-  F0Tuple es -> Set.unions (freeVariables <$> es)
-  F0TupleAccess _ _ e -> freeVariables e 
-  F0TagValue _ _ e -> freeVariables e
-  F0Case obj arms -> freeVariables obj <> Set.unions (map (\(_, (x, e)) -> x `Set.delete` freeVariables e) arms)
-  F0Let d e -> freeVariablesDecl d <> freeVariables e 
-  F0TypeAssertion{} -> error "Type assertion is not supported"
-  where freeVariablesDecl = \case 
+freeVariables :: Ord symbol => F0Expression symbol typeInfo -> Set symbol
+freeVariables = cata go
+  where go (F0IdentifierF x) = Set.singleton x 
+        go (F0LambdaF x _ e) = Set.delete x e
+        go (F0LetF d e) = Set.union (freeVariablesDecl d) e
+        go (F0CaseF obj rules) = fold $ obj : map (\(_, (x, s)) -> Set.delete x s) rules
+        go other = fold other
+
+        freeVariablesDecl = \case 
           F0Value _ _ e -> freeVariables e 
           F0Fun _ _ _ e -> freeVariables e 
           F0Data {} -> Set.empty
@@ -133,18 +129,10 @@ instance RemovablePosition (F0Declaration s t) where
   removePositionInfo (d@(F0Data {})) = d 
 
 instance RemovablePosition (F0Expression s t) where 
-  removePositionInfo (F0ExpPos _ e _) = removePositionInfo e 
-  removePositionInfo (F0OpExp op es) = F0OpExp op (removePositionInfo <$> es)
-  removePositionInfo (F0TypeAssertion e t) = F0TypeAssertion (removePositionInfo e) t 
-  removePositionInfo (F0Lambda name t e) = F0Lambda name t (removePositionInfo e)
-  removePositionInfo (F0App e1 e2) = F0App (removePositionInfo e1) (removePositionInfo e2) 
-  removePositionInfo (F0If e1 e2 e3) = F0If (removePositionInfo e1) (removePositionInfo e2) (removePositionInfo e3)
-  removePositionInfo (F0Let d e) = F0Let (removePositionInfo d) (removePositionInfo e)
-  removePositionInfo (F0Tuple es) = F0Tuple (removePositionInfo es)
-  removePositionInfo (F0TupleAccess i n e) = F0TupleAccess i n (removePositionInfo e)
-  removePositionInfo (F0TagValue tag i e) = F0TagValue tag i (removePositionInfo e)
-  removePositionInfo (F0Case obj rules) = F0Case (removePositionInfo obj) $ map (\(tag, (x, e)) -> (tag, (x, removePositionInfo e))) rules
-  removePositionInfo other = other 
+  removePositionInfo = cata go
+    where go :: F0ExpressionF s t (F0Expression s t) -> F0Expression s t
+          go (F0ExpPosF _ e _) = e
+          go e = embed e -- Transform from functorized version to regular version
 
 instance RemovablePosition a => RemovablePosition [a] where 
   removePositionInfo = fmap removePositionInfo
