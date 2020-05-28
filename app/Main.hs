@@ -56,6 +56,7 @@ main = do
   let inputFile = file 
   text <- readFile inputFile
   
+  -- Allow usage of a different version of cc0 not on path
   cc0 <- lookupEnv "F0_CC0" <&> fromMaybe "cc0" 
 
   CompilerOutput{..} <- case compile inputFile text of 

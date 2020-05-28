@@ -1,6 +1,4 @@
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE Rank2Types #-}
 module Compiler.CompilerM 
   ( PackedCompilerError(..)
   , CompilerM(runCompilerM)
