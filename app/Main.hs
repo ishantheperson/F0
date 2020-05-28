@@ -36,6 +36,7 @@ data CompilerOptions = CompilerOptions
     inputFile :: FilePath
   }
 
+compilerOptions :: Opts.Parser CompilerOptions
 compilerOptions = do 
   printAst         <- Opts.switch (Opts.long "print-ast" <> Opts.help "print out the AST at various points during compilation")
   printTypes       <- Opts.switch (Opts.long "print-types" <> Opts.help "print out the types of the top level decls")
@@ -48,6 +49,7 @@ compilerOptions = do
   inputFile        <- Opts.argument Opts.str (Opts.metavar "<input file>")
   return $ CompilerOptions{..}
 
+options :: Opts.ParserInfo CompilerOptions
 options = Opts.info (Opts.helper <*> compilerOptions) Opts.fullDesc
 
 main :: IO ()

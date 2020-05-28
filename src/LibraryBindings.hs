@@ -4,7 +4,6 @@
 module LibraryBindings where 
 
 import Parser.AST 
-import Parser.ASTUtil 
 
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map 

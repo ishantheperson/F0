@@ -17,7 +17,6 @@ import Parser.ASTUtil
 
 import Data.Maybe (fromMaybe)
 
-import Data.Set (Set)
 import qualified Data.Set as Set 
 import Data.Map (Map)
 import qualified Data.Map.Lazy as Map
@@ -174,6 +173,7 @@ codegenExpr env = \case
     codegenExpr env letBody 
 
   F0Let (F0DeclPos _ d _) e -> codegenExpr env (F0Let d e)
+  F0Let (F0Fun {}) _ -> error "codegenExpr: F0Fun should be eliminated at this point"
 
   F0Lambda argName _ e -> do 
     let captured = Set.toList $ freeVariables e 

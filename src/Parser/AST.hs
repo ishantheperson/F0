@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -48,7 +49,6 @@ instance Display (Maybe SourceRange) where
     where green = "\x1b[32m"
           boldRed = "\x1b[1m\x1b[31m"
           reset = "\x1b[0m"
-          predZ x = if x == 0 then 0 else pred x  
 
           showRange :: String -> Int -> Int -> Int -> String
           showRange line num start end = 

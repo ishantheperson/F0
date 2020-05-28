@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE LambdaCase #-}
 module Parser.ASTUtil where 
 
@@ -50,10 +51,6 @@ freeVariables = cata go
           F0Data {} -> Set.empty
           F0DeclPos _ d _ -> freeVariablesDecl d 
 
-class TypeSubstitutable a where 
-  subst :: Substitution -> a -> a 
-  freeTypeVariables :: a -> Set TypeVariable
-
 type Substitution = Map TypeVariable F0Type 
 emptySubstitution :: Substitution
 emptySubstitution = Map.empty 
@@ -61,6 +58,14 @@ emptySubstitution = Map.empty
 -- Apply substitution s1 to s2, and also apply s1 
 composeSubst :: Substitution -> Substitution -> Substitution
 composeSubst s1 s2 = Map.map (subst s1) s2 <> s1 
+
+class TypeSubstitutable a where 
+  subst :: Substitution -> a -> a 
+  freeTypeVariables :: a -> Set TypeVariable
+
+instance TypeSubstitutable a => TypeSubstitutable [a] where 
+  subst = fmap . subst
+  freeTypeVariables = foldr (Set.union . freeTypeVariables) Set.empty 
 
 instance TypeSubstitutable F0Type where 
   subst s = \case 

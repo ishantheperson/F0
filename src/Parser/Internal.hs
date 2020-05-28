@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-orphans -Wno-unused-do-bind #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -80,7 +81,7 @@ f0Decl = positioned (fun <|> val <|> datatype)
                 -- Desugar tuple destructuring next 
                 desugarArg :: (Int, Pattern) -> F0Expression String Maybe -> F0Expression String Maybe
                 desugarArg (i, p) e = case p of 
-                  Name s -> e 
+                  Name _ -> e -- Name doesn't need to be desugared
                   Discard -> e 
                   Tuple ts -> desugarTuple ts ("_tuple" ++ show i) e 
 
@@ -282,6 +283,7 @@ symbol = Lex.symbol sc
 opChar :: Parser Char
 opChar = choice (char <$> "!+-*/%@<>=")
 
+operator :: String -> Parser String
 operator s = try (symbol s <* notFollowedBy opChar)
 
 stringLiteral :: Parser String

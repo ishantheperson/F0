@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-orphans -Wno-unused-do-bind #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -5,7 +6,12 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Typechecker.Infer (typecheck, typecheckExpr, TypeEnvironment, emptyEnv, defaultState, TypeError(..), Scheme(..), getSymbolType) where 
+module Typechecker.Infer (
+  typecheck, typecheckExpr, 
+  TypeEnvironment, emptyEnv, defaultState, 
+  TypeError(..), 
+  Scheme(..), getSymbolType
+  ) where 
 
 import Parser.AST 
 import Parser.ASTUtil 
@@ -15,8 +21,6 @@ import Codegen.Symbolize (Symbol(..))
 import LibraryBindings
 
 import Data.Maybe (fromJust, mapMaybe)
-import Data.List (sort)
-import Data.Set (Set)
 import qualified Data.Set as Set 
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map 
@@ -62,9 +66,8 @@ instance Display TypeEnvironment where
 data TypeErrorData = 
     Mismatch F0Type F0Type 
   | InfiniteType TypeVariable F0Type
-  | NotConstructor String 
   | ConstructorsDontMatch
-  | ConstructorNotFound
+  | ConstructorNotFound Symbol
   deriving (Show, Eq)  
 
 newtype TypeError = TypeError (Maybe SourceRange, TypeErrorData) deriving (Show, Eq)
@@ -82,14 +85,15 @@ instance CompilerError TypeError where
   errorMsg = display
   errorMsgIO = displayIO
 
+printTypeError :: TypeErrorData -> String
 printTypeError (Mismatch a b) =
     printf "couldn't match types: %s ~ %s" (display a) (display b)
 printTypeError (InfiniteType a b) = 
     printf "found infinite type when trying to solve: %s ~ %s" a (display b)
 printTypeError ConstructorsDontMatch = 
     "constructors aren't all from the same datatype"
-printTypeError ConstructorNotFound = 
-    "expected a datatype constructor in case rule"
+printTypeError (ConstructorNotFound x) = 
+    printf "'%s' is not a data constructor in scope" (display x)
 
 data InferState = InferState 
   {
@@ -124,7 +128,7 @@ getConstructors range ctor = do
   ctors <- gets constructors 
   case Map.lookup ctor ctors of 
     Just entry -> return entry 
-    Nothing -> throwError $ TypeError (range, ConstructorNotFound)
+    Nothing -> throwError $ TypeError (range, ConstructorNotFound ctor)
 
 -- | Substituting into a scheme respects which variables are bound in the quantification
 instance TypeSubstitutable Scheme where 
@@ -132,14 +136,6 @@ instance TypeSubstitutable Scheme where
     where s' = foldr Map.delete s vars 
 
   freeTypeVariables (Forall vars t) = freeTypeVariables t `Set.difference` Set.fromList vars 
-
-instance TypeSubstitutable a => TypeSubstitutable [a] where 
-  subst = fmap . subst
-  freeTypeVariables = foldr (Set.union . freeTypeVariables) Set.empty 
-
-instance TypeSubstitutable TypeEnvironment where 
-  subst s (TypeEnvironment env) = TypeEnvironment $ Map.map (subst s) env 
-  freeTypeVariables (TypeEnvironment env) = freeTypeVariables (Map.elems env)
 
 instance TypeSubstitutable (F0Expression Symbol Identity) where 
   subst s = cata go 
@@ -149,6 +145,10 @@ instance TypeSubstitutable (F0Expression Symbol Identity) where
   freeTypeVariables = cata go 
     where go (F0LambdaF _ (Identity t) e) = freeTypeVariables t <> e 
           go other = fold other 
+
+instance TypeSubstitutable TypeEnvironment where 
+  subst s (TypeEnvironment env) = TypeEnvironment $ Map.map (subst s) env 
+  freeTypeVariables (TypeEnvironment env) = freeTypeVariables (Map.elems env)
 
 -- Removes quantifiers 
 instantiate :: Infer m => Scheme -> m F0Type 
@@ -258,7 +258,7 @@ infer range e = case e of
     return (F0Case obj $ zipWith (\(constr, (x, _)) e -> (constr, (x, e))) rules arms, (head armTys, constraints))
 
     where unbind :: Scheme -> Scheme 
-          unbind (Forall tvs t) = Forall [] t 
+          unbind (Forall _ t) = Forall [] t 
 
   F0OpExp Not [e1] -> do 
     (e1, (t, c)) <- infer range e1 
@@ -270,6 +270,8 @@ infer range e = case e of
 
     return (F0OpExp op [e1, e2], (F0PrimitiveType $ operatorOutput op, 
                                  [(range, t1, F0PrimitiveType $ operatorInput op), (range, t2, F0PrimitiveType $ operatorInput op)] ++ c1 ++ c2))
+
+  F0OpExp _ _ -> error "infer: illegal operator arity"
 
   F0If e1 e2 e3 -> do 
     (e1, (t1, c1)) <- infer range e1 
@@ -293,9 +295,6 @@ runInfer env state = runExcept . flip runReaderT env . flip runStateT state
 -- Solving constraints
 -- ----------------------
 
-runSolve :: Except TypeError a -> Either TypeError a 
-runSolve = runExcept
-
 solve :: MonadError TypeError m => [Constraint] -> m Substitution 
 solve [] = return emptySubstitution
 solve ((range, t1, t2):cs) = do 
@@ -308,7 +307,7 @@ unify range (F0TypeTuple [a]) b = unify range a b -- Remove type tuple layer if 
 unify range a (F0TypeTuple [b]) = unify range a b  
 unify range (F0TypeVariable a) t = bind range a t 
 unify range t (F0TypeVariable a) = bind range a t
-unify range (F0PrimitiveType a) (F0PrimitiveType b) | a == b = return emptySubstitution 
+unify _ (F0PrimitiveType a) (F0PrimitiveType b) | a == b = return emptySubstitution 
 unify range (a `F0Function` b) (c `F0Function` d) = unifies range [a, b] [c, d]
 unify range (F0TupleType t1s) (F0TupleType t2s) | length t1s == length t2s = 
   unifies range t1s t2s 
@@ -321,15 +320,15 @@ unify range t1 t2 = do
   return emptySubstitution 
 
 unifies :: MonadError TypeError m => Maybe SourceRange -> [F0Type] -> [F0Type] -> m Substitution
-unifies range [] [] = return emptySubstitution
+unifies _ [] [] = return emptySubstitution
 unifies range (t1:t1s) (t2:t2s) = do 
   s1 <- unify range t1 t2 
   s2 <- unifies range (subst s1 t1s) (subst s1 t2s)
   return $ s2 `composeSubst` s1 
 
-unifies range _ _ = error "unifies: Inputs should always be of the same length!"
+unifies _ _ _ = error "unifies: Inputs should always be of the same length!"
 
--- bind :: Infer m => Maybe SourceRange -> TypeVariable -> F0Type -> m Substitution
+bind :: MonadError TypeError m => Maybe SourceRange -> TypeVariable -> F0Type -> m Substitution
 bind range a t | t == (F0TypeVariable a) = return emptySubstitution -- a and t are the same variable
                | occursCheck a t = do 
                     throwError $ TypeError (range, InfiniteType a t)
@@ -390,7 +389,6 @@ checkDecl range d = do
           constructorNames = map fst constructors 
 
       addConstructors name (declNames constructorFunctions valSchemes)
-      st <- get 
 
       return ((F0Data tvs name constructors):constructorFunctions, -- Don't forget about the original data declaration
               zip constructorNames constructionSchemes, (emptySubstitution, []))

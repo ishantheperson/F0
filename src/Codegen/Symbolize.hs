@@ -14,13 +14,11 @@ module Codegen.Symbolize (
   SymbolError(..)) where 
 
 import Parser.AST 
-import Parser.ASTUtil
 import LibraryBindings
 
 import Compiler.CompilerError
 
 import Data.List.NonEmpty (NonEmpty(..))
-import qualified Data.List.NonEmpty as NonEmpty
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map 
 
@@ -72,6 +70,7 @@ instance CompilerError SymbolError where
   errorStage = const "Symbolization"
   errorMsg = display
 
+printSymbolErr :: SymbolErrorType -> String
 printSymbolErr (UnboundVariable x) = 
   "unbound variable '" ++ x ++ "'"
 

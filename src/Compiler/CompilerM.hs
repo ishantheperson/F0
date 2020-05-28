@@ -25,7 +25,7 @@ instance Show PackedCompilerError where
 data CompilerM a = CompilerM { runCompilerM :: Either PackedCompilerError a }
 
 instance Functor CompilerM where 
-  fmap f (CompilerM (Left e)) = CompilerM (Left e)
+  fmap _ (CompilerM (Left e)) = CompilerM (Left e)
   fmap f (CompilerM (Right x)) = CompilerM (Right (f x))
 
 instance Applicative CompilerM where 

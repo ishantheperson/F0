@@ -30,7 +30,6 @@ import Control.Monad.State.Strict
 
 import Data.Char (isAlphaNum)
 import Data.List (intercalate)
-import Data.Maybe (mapMaybe)
 
 import Text.Printf 
 import Display
@@ -123,6 +122,7 @@ functionName i = printf "f0_lambda%d" i
 -- the name which are not valid C0 identifier characters
 varName :: Symbol -> String 
 varName (Symbol (i, n)) = printf "f0_var_%s%d" (filter isAlphaNum n) i 
+varName (NativeFunction n) = n 
 
 functionHeaders :: [C0Function] -> String 
 functionHeaders = unlines . zipWith functionHeader [0..] 
@@ -211,6 +211,8 @@ outputExpr = \case
     let t = operatorOutput op 
     outputLine $ printf "%s %s = %s %s %s;" (printPrimitiveTypeC0 t) result a (printOp op) b 
     return result 
+
+  C0Op _ _ -> error "outputExpr: illegal operator combination"
 
   C0CreateTuple es -> do 
     let tupleSize = length es 
@@ -324,7 +326,6 @@ outputExpr = \case
     outputExpr letBody 
 
   C0NativeFn n -> do 
-    functionObjName <- freshName -- Not really a closure because it never captures anything 
     closureName <- freshName 
     outputLine $ printf "struct f0_closure* %s = alloc(struct f0_closure);" closureName 
     outputLine $ printf "%s->f = &%s;" closureName (wrappedNativeName n)
