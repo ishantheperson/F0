@@ -80,15 +80,15 @@ main = do
   -- Compile program using CC0
   -- callProcess throws an exception if the command fails,
   -- but if CC0 fails here then that is a bug in our program
-  callProcess cc0
-    (
-      (if optimize then ["-c", "-O2"] else []) ++
-      ["-r", "unsafe"] ++ -- not checking tags could give a big boost to performance/memory usage
-      ["-c", "-ftrapv"] ++ -- gcc/clang extension to abort on div by zero. 
-      ["-o", basename] ++ -- a.out is such an ugly name
-      extraCC0Opts ++ -- user provided options
+  callProcess cc0 $ concat 
+    [
+      if optimize then ["-c", "-O2"] else [],
+      ["-r", "unsafe"], -- not checking tags could give a big boost to performance/memory usage
+      ["-c", "-ftrapv"], -- gcc/clang extension to abort on div by zero. 
+      ["-o", basename], -- a.out is such an ugly name
+      extraCC0Opts, -- user provided options
       [outputFileName]
-    )
+    ]
 
   -- Avoid cluttering the directory by removing the generated code
   unless keepC1 $ removeFile outputFileName
