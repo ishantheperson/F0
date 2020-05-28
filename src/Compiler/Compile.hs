@@ -41,15 +41,5 @@ compile fileName text = runCompilerM $ do
   let c1source = outputProgram transformedAST
   return $ CompilerOutput{..} 
 
--- | Compiler @text@ to a string which is C1 source code.
--- @fileName@ is used to report errors
-compileSource :: FilePath -> String -> Either PackedCompilerError String
-compileSource fileName text = runCompilerM $
-      liftCompiler (runParser (sc *> f0Decls <* eof) fileName text)
-  <&> (++[dummyMain]) 
-  >>= liftCompiler . symbolize
-  >>= liftCompiler . typecheck emptyEnv defaultState
-  <&> outputProgram . runCodegen . codegenExpr [] . programToExpression . snd
-
 dummyMain :: F0Declaration String Maybe 
 dummyMain = F0Value "_main" (Just $ F0PrimitiveType F0IntType) (F0OpExp Plus [F0Literal $ F0IntLiteral 0, F0Identifier "main"])

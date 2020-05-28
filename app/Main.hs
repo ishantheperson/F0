@@ -33,7 +33,7 @@ data CompilerOptions = CompilerOptions
     onlyTypecheck :: Bool,
     keepC1 :: Bool,
     extraCC0Opts :: [String],
-    file :: FilePath
+    inputFile :: FilePath
   }
 
 compilerOptions = do 
@@ -45,7 +45,7 @@ compilerOptions = do
   onlyTypecheck    <- Opts.switch (Opts.long "only-typecheck" <> Opts.short 't' <> Opts.help "don't create an executable. implies --print-types")
   keepC1           <- Opts.switch (Opts.long "save-files" <> Opts.short 's' <> Opts.help "save the generated C1 code")
   extraCC0Opts     <- Opts.many   (Opts.strOption (Opts.short 'c' <> Opts.metavar "<arg>" <> Opts.help "pass an option to CC0"))
-  file             <- Opts.argument Opts.str (Opts.metavar "<input file>")
+  inputFile        <- Opts.argument Opts.str (Opts.metavar "<input file>")
   return $ CompilerOptions{..}
 
 options = Opts.info (Opts.helper <*> compilerOptions) Opts.fullDesc
@@ -53,7 +53,6 @@ options = Opts.info (Opts.helper <*> compilerOptions) Opts.fullDesc
 main :: IO ()
 main = do 
   CompilerOptions{..} <- Opts.execParser options 
-  let inputFile = file 
   text <- readFile inputFile
   
   -- Allow usage of a different version of cc0 not on path
