@@ -1,5 +1,6 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Parser.Internal where 
 
 import Data.Void 
@@ -8,6 +9,7 @@ import Data.List (partition)
 import Control.Monad (void)
 
 import Parser.AST 
+import Compiler.CompilerError
 
 import Text.Megaparsec 
 import Text.Megaparsec.Char
@@ -16,18 +18,13 @@ import Control.Monad.Combinators.Expr
 
 type Parser = Parsec Void String 
 
+instance CompilerError (ParseErrorBundle String Void) where 
+  errorStage = const "parsing"
+  errorMsg = errorBundlePretty
+
+-- | Parses an nonempty list of decls
 f0Decls :: Parser [F0Declaration String Maybe]
-f0Decls = concat <$> many f0Decl
-  where recover = id 
-          -- Recovery is right now broken since it messes up
-          -- let declarations 
-          -- (the failure to find another decl causes it to skip ahead)
-          -- Could probably be fixed by checking if the error token is "in"
-          {-withRecovery $ \e -> do
-          registerParseError e
-          -- Advance to next "fun" or "val"
-          someTill anySingle (void . lookAhead $ choice (reserved <$> ["fun", "val"]) <|> eof)
-          return Nothing -}
+f0Decls = concat <$> some f0Decl
 
 data ContractType = Requires | Ensures deriving Show 
 isRequires :: ContractType -> Bool
@@ -42,6 +39,10 @@ f0Decl = positioned (fun <|> val <|> datatype)
     where val = do 
             reserved "val"
             name <- pat 
+            void . optional $ do 
+              symbol ":"
+              f0Type
+
             symbol "="
             e <- f0Expression
             case name of 
@@ -55,7 +56,7 @@ f0Decl = positioned (fun <|> val <|> datatype)
           fun = do 
             contracts <- option [] (many contract)
             name <- reserved "fun" *> identifier  
-            args <- zip [0..] <$> some pat 
+            args <- zip [0..] <$> (some pat <* optional (symbol ":" *> f0Type))
             e <- symbol "=" *> f0Expression
 
             let -- Desugar contracts first 
@@ -97,10 +98,10 @@ f0Decl = positioned (fun <|> val <|> datatype)
             return [F0Fun name functionArgs Nothing newFunctionBody]
 
           contract :: Parser (ContractType, F0Expression String Maybe)
-          contract = symbol "(*@" *> (
-                                      (,) <$> ((Requires <$ reserved "requires") <|> (Ensures <$ reserved "ensures"))
-                                          <*> f0Expression 
-                                     ) <* symbol "@*)"
+          contract = (symbol "(*@" *> (
+                                       (,) <$> ((Requires <$ reserved "requires") <|> (Ensures <$ reserved "ensures"))
+                                           <*> f0Expression 
+                                      ) <* symbol "@*)") <?> "contract"
 
           datatype = do 
             reserved "datatype"

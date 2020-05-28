@@ -5,13 +5,13 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Typechecker.Infer (typecheck, typecheckExpr, emptyEnv, defaultState, TypeError(..), Scheme(..), getSymbolType) where 
+module Typechecker.Infer (typecheck, typecheckExpr, TypeEnvironment, emptyEnv, defaultState, TypeError(..), Scheme(..), getSymbolType) where 
 
 import Parser.AST 
 import Parser.ASTUtil 
 
+import Compiler.CompilerError
 import Codegen.Symbolize (Symbol(..))
-
 import LibraryBindings
 
 import Data.Maybe (fromJust, mapMaybe)
@@ -30,6 +30,7 @@ import Control.Monad.State.Strict
 import Control.Monad.Except
 
 import Text.Printf 
+import Display
 
 -- Based off of: http://dev.stephendiehl.com/fun/006_hindley_milner.html
 
@@ -75,6 +76,11 @@ instance Display TypeError where
   displayIO (TypeError (range, err)) = do 
     rangeTxt <- displayIO range 
     return $ unlines [rangeTxt, printTypeError err]
+
+instance CompilerError TypeError where 
+  errorStage = const "typechecking"
+  errorMsg = display
+  errorMsgIO = displayIO
 
 printTypeError (Mismatch a b) =
     printf "couldn't match types: %s ~ %s" (display a) (display b)

@@ -13,12 +13,9 @@ import Text.Printf
 
 import Data.Functor.Foldable.TH
 
-type SourceRange = (SourcePos, SourcePos)
+import Display
 
-class Display a where 
-  display :: a -> String 
-  displayIO :: a -> IO String 
-  displayIO = pure . display
+type SourceRange = (SourcePos, SourcePos)
 
 instance Display (Maybe SourceRange) where 
   display = printSourceRange

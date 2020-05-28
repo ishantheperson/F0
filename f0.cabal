@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d8b0f3dca014b5302cae67abec393d7140deb6ca0a3dd5aea0c2f8f34518c574
+-- hash: 03fbcf501ca5e3333f291f83d4627fbf3fc358de8dd05a5cb72c23b0a863c535
 
 name:           f0
 version:        0.1.0.0
@@ -30,6 +30,10 @@ library
       Codegen.Closure
       Codegen.PrintC0
       Codegen.Symbolize
+      Compiler.Compile
+      Compiler.CompilerError
+      Compiler.CompilerM
+      Display
       LibraryBindings
       Parser.AST
       Parser.ASTUtil

@@ -16,6 +16,7 @@ import Data.Foldable (fold)
 import Data.Functor.Foldable hiding (fold)
 
 import Text.Printf
+import Display
 
 declName :: F0Declaration symbol typeInfo -> Maybe symbol 
 declName = \case 
@@ -34,13 +35,18 @@ freeVariables :: Ord symbol => F0Expression symbol typeInfo -> Set symbol
 freeVariables = cata go
   where go (F0IdentifierF x) = Set.singleton x 
         go (F0LambdaF x _ e) = Set.delete x e
-        go (F0LetF d e) = Set.union (freeVariablesDecl d) e
+        go (F0LetF d e) = 
+          case declName d of 
+            -- This is a datatype declaration so it 
+            -- can't have any free vars
+            Nothing -> e 
+            Just x -> Set.delete x e <> freeVariablesDecl d
         go (F0CaseF obj rules) = fold $ obj : map (\(_, (x, s)) -> Set.delete x s) rules
         go other = fold other
 
         freeVariablesDecl = \case 
           F0Value _ _ e -> freeVariables e 
-          F0Fun _ _ _ e -> freeVariables e 
+          F0Fun x _ _ e -> Set.delete x (freeVariables e)
           F0Data {} -> Set.empty
           F0DeclPos _ d _ -> freeVariablesDecl d 
 

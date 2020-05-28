@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE Strict #-}
 {-|
   All lambdas are promoted to "real functions".
   All original top level bindings in the program are
@@ -61,10 +62,7 @@ data C0Literal =
   | C0BoolLiteral Bool 
   deriving (Show, Eq)
 
--- | TODO: Remove C0Environment from C0Function. All the 
--- information is already in the expression  
---
--- The first parameter is a string (doesn't have to be unique)
+-- | The first parameter is a string (doesn't have to be unique)
 -- The third parameter is just the function's code.
 data C0Function = 
   C0Function (Maybe Symbol) C0Expression
@@ -106,11 +104,11 @@ codegenExpr :: Codegen m => C0Environment -> F0Expression Symbol typeInfo -> m C
 codegenExpr env = \case 
   F0ExpPos _ e _ -> codegenExpr env e 
   F0TypeAssertion e _ -> codegenExpr env e 
-  F0Literal l -> case l of 
-    F0IntLiteral i -> return $ C0Box F0IntType (C0Literal $ C0IntLiteral i)
-    F0StringLiteral s -> return $ C0Box F0StringType (C0Literal $ C0StringLiteral s)
-    F0BoolLiteral b -> return $ C0Box F0BoolType (C0Literal $ C0BoolLiteral b)
-    F0UnitLiteral -> return $ C0Box F0IntType (C0Literal $ C0IntLiteral 0)
+  F0Literal l -> return $ case l of 
+    F0IntLiteral i -> C0Box F0IntType (C0Literal $ C0IntLiteral i)
+    F0StringLiteral s -> C0Box F0StringType (C0Literal $ C0StringLiteral s)
+    F0BoolLiteral b -> C0Box F0BoolType (C0Literal $ C0BoolLiteral b)
+    F0UnitLiteral -> C0Box F0IntType (C0Literal $ C0IntLiteral 0)
 
   F0Identifier (NativeFunction n) -> do 
     return $ C0NativeFn n 
@@ -214,3 +212,4 @@ programToExpression decls = foldr F0Let mainExpr (init decls)
 
 forceLookup :: (Show a, Show b, Eq a) => a -> [(a, b)] -> b
 forceLookup x e = fromMaybe (error $ "codegen: Variable not found! " ++ show x) $ lookup x e 
+{-# SPECIALIZE INLINE forceLookup :: Symbol -> [(Symbol, C0VariableReference)] -> C0VariableReference #-}

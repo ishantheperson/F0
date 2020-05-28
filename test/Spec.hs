@@ -1,3 +1,5 @@
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE OverloadedLists #-}
 import Test.Hspec
 
 import System.Exit
@@ -13,14 +15,19 @@ import Codegen.Symbolize
 import Codegen.Closure
 import Codegen.PrintC0
 
+import Compiler.Compile 
+
 import Typechecker.Infer
 
 import Text.Megaparsec
 
+import Data.List.NonEmpty (NonEmpty(..))
 import Data.Maybe (fromJust)
 import Data.Either (isLeft, fromRight)
 import qualified Data.Map.Strict as Map 
 import qualified Data.Set as Set 
+
+import Display
 
 tryParse p s = removePositionInfo <$> runParser p "" s
 
@@ -52,37 +59,19 @@ moveToTestDir = setCurrentDirectory "test/testcases"
 
 -- | Takes a path to a .sml file in the testcases directory.
 -- There should also be a .txt file with the expected stdout 
-integrateTest :: FilePath -> Expectation 
 integrateTest inputFile = do 
-    text <- readFile inputFile
-  
-    parseTree <- case runParser (sc *> f0Decls <* eof) inputFile text of 
-                  Left errors -> fail "Parsing failed"
+  text <- readFile inputFile 
+  case compile inputFile text of 
+    Left e -> fail (display e)
+    Right (c1source -> c1src) -> do
+      let outputFileName = dropExtension inputFile ++ ".c1"
+          expectationFileName = dropExtension inputFile ++ ".txt"
 
-                  Right ast -> return ast 
+      writeFile outputFileName c1src
+      (status, stdout, stderr) <- readProcessWithExitCode "cc0" ["-x", outputFileName] ""
+      expected <- readFile expectationFileName
 
-    -- Insert main value (_main)
-    parseTree <- return $ parseTree ++ [F0Value "_main" (Just $ F0PrimitiveType F0IntType) (F0Identifier "main")]
-
-    symbolized <- case symbolize parseTree of 
-                    Left errors -> fail "Symbolization failed"
-                    Right ast -> return ast 
-
-    (typeEnv, typeAST) <- case typecheck emptyEnv defaultState symbolized of 
-                            Left errors -> fail "Typechecking failed"
-                            Right results -> return results 
-
-    let e = programToExpression typeAST 
-        c0Program = runCodegen (codegenExpr [] e)
-        outputFileName = dropExtension inputFile ++ ".c1"
-        expectationFileName = dropExtension inputFile ++ ".txt"
-
-    writeFile outputFileName (outputProgram c0Program)
-    (status, stdout, stderr) <- readProcessWithExitCode "cc0" ["-x", outputFileName] ""
-
-    expected <- readFile expectationFileName
-
-    stdout `shouldBe` expected 
+      stdout `shouldBe` expected 
 
 parseExpTests, parseTypeTests, parseDeclTests :: SpecWith ()
 parseExpTests = describe "Expression parsing" $ do 

@@ -7,18 +7,28 @@
 -- type is a string into one where
 -- the symbol type is able to 
 -- distinguish between shadowed variables
-module Codegen.Symbolize (symbolize, SymbolErrorType(..), Symbol(..), SymbolError(..)) where 
+module Codegen.Symbolize (
+  symbolize, 
+  Symbol(..), 
+  SymbolErrorType(..), 
+  SymbolError(..)) where 
 
 import Parser.AST 
 import Parser.ASTUtil
 import LibraryBindings
 
+import Compiler.CompilerError
+
+import Data.List.NonEmpty (NonEmpty(..))
+import qualified Data.List.NonEmpty as NonEmpty
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map 
 
 import Control.Applicative ((<|>))
 import Control.Monad.Writer.Strict
 import Control.Monad.State.Strict
+
+import Display
 
 -- | A symbol consists of a integer
 -- which uniquely identifies this variable
@@ -46,7 +56,7 @@ instance Display Symbol where
 type SymbolMap = Map String Symbol 
 data SymbolErrorType = UnboundVariable String deriving (Show, Eq)
 newtype SymbolError = SymbolError (Maybe SourceRange, SymbolErrorType) deriving (Show, Eq)
-type SymbolContext m = (MonadState Int m, MonadWriter [SymbolError] m) 
+type SymbolContext m = (MonadState Int m, MonadWriter (Maybe (NonEmpty SymbolError)) m) 
 type Symbolizer m (a :: * -> (* -> *) -> *) (b :: * -> *) = 
   SymbolContext m => SymbolMap -> Maybe SourceRange -> a String b -> m (a Symbol b)
 
@@ -57,6 +67,10 @@ instance Display SymbolError where
   displayIO (SymbolError (range, err)) = do 
     rangeTxt <- displayIO range 
     return $ unlines [rangeTxt, printSymbolErr err]
+
+instance CompilerError SymbolError where 
+  errorStage = const "Symbolization"
+  errorMsg = display
 
 printSymbolErr (UnboundVariable x) = 
   "unbound variable '" ++ x ++ "'"
@@ -72,11 +86,11 @@ mkSymbol s = do
 dummySymbol :: Symbol 
 dummySymbol = Symbol (-1, "")
 
-symbolize :: [F0Declaration String typeInfo] -> Either [SymbolError] [F0Declaration Symbol typeInfo]
+symbolize :: [F0Declaration String typeInfo] -> Either (NonEmpty SymbolError) [F0Declaration Symbol typeInfo]
 symbolize decls = 
   case runWriter $ evalStateT (go Map.empty decls) 0 of 
-    (symbolizedDecls, []) -> Right symbolizedDecls
-    (_, errors) -> Left errors 
+    (symbolizedDecls, Nothing) -> Right symbolizedDecls
+    (_, Just errors) -> Left errors 
 
   where go :: SymbolContext m => Map String Symbol -> [F0Declaration String b] -> m [F0Declaration Symbol b]
         go _ [] = return []
@@ -162,5 +176,5 @@ symbolizeExpr symbolMap position = \case
           case Map.lookup name symbolMap <|> (NativeFunction name <$ Map.lookup name libraryBindings) of 
             Just symbol -> return symbol 
             Nothing -> do 
-              tell [SymbolError (position, UnboundVariable name)]
+              tell $ Just (SymbolError (position, UnboundVariable name) :| [])
               return dummySymbol

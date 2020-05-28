@@ -4,6 +4,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE Strict #-}
 {-|
   Steps to producing a C0 file:
 
@@ -25,12 +26,14 @@ import Codegen.Closure
 import Codegen.Symbolize 
 import LibraryBindings
 
-import Text.Printf 
 import Control.Monad.State.Strict
 
 import Data.Char (isAlphaNum)
 import Data.List (intercalate)
 import Data.Maybe (mapMaybe)
+
+import Text.Printf 
+import Display
 
 generalDecls :: String 
 generalDecls = unlines
