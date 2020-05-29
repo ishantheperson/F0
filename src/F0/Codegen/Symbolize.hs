@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RankNTypes #-}
@@ -7,16 +8,16 @@
 -- type is a string into one where
 -- the symbol type is able to 
 -- distinguish between shadowed variables
-module Codegen.Symbolize (
+module F0.Codegen.Symbolize (
   symbolize, 
   Symbol(..), 
   SymbolErrorType(..), 
   SymbolError(..)) where 
 
-import Parser.AST 
-import LibraryBindings
+import F0.Parser.AST 
+import F0.LibraryBindings
 
-import Compiler.CompilerError
+import F0.Compiler.CompilerError
 
 import Data.List.NonEmpty (NonEmpty(..))
 import Data.Map.Strict (Map)
@@ -26,7 +27,7 @@ import Control.Applicative ((<|>))
 import Control.Monad.Writer.Strict
 import Control.Monad.State.Strict
 
-import Display
+import F0.Display
 
 -- | A symbol consists of a integer
 -- which uniquely identifies this variable

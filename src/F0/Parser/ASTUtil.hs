@@ -1,8 +1,8 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE LambdaCase #-}
-module Parser.ASTUtil where 
+module F0.Parser.ASTUtil where 
 
-import Parser.AST 
+import F0.Parser.AST 
 
 import Data.List (intercalate)
 import Data.Maybe (mapMaybe)
@@ -17,7 +17,7 @@ import Data.Foldable (fold)
 import Data.Functor.Foldable hiding (fold)
 
 import Text.Printf
-import Display
+import F0.Display
 
 declName :: F0Declaration symbol typeInfo -> Maybe symbol 
 declName = \case 

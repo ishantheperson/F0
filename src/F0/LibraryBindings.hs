@@ -1,9 +1,9 @@
 -- | Provides a mapping from 
 -- available C0 function names
 -- to their F0 types
-module LibraryBindings where 
+module F0.LibraryBindings where 
 
-import Parser.AST 
+import F0.Parser.AST 
 
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map 

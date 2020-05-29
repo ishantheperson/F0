@@ -15,13 +15,13 @@ import System.Process (callProcess)
 
 import qualified Options.Applicative as Opts
 
-import Display
+import F0.Display
 import Text.Show.Pretty 
 import Language.Haskell.HsColour
 import Language.Haskell.HsColour.Colourise
 
-import Parser.ASTUtil (removePositionInfo)
-import Compiler.Compile
+import F0.Parser.ASTUtil (removePositionInfo)
+import F0.Compiler.Compile
 
 data CompilerOptions = CompilerOptions 
   {

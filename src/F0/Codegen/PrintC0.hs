@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -18,13 +19,13 @@
 
   4. Generate the code for the actual expression 
 -}
-module Codegen.PrintC0 where 
+module F0.Codegen.PrintC0 where 
 
-import Parser.AST 
-import Parser.ASTUtil 
-import Codegen.Closure 
-import Codegen.Symbolize 
-import LibraryBindings
+import F0.Parser.AST 
+import F0.Parser.ASTUtil 
+import F0.Codegen.Closure 
+import F0.Codegen.Symbolize 
+import F0.LibraryBindings
 
 import Control.Monad.State.Strict
 
@@ -32,7 +33,7 @@ import Data.Char (isAlphaNum)
 import Data.List (intercalate)
 
 import Text.Printf 
-import Display
+import F0.Display
 
 generalDecls :: String 
 generalDecls = unlines

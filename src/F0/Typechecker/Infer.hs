@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -Wno-orphans -Wno-unused-do-bind #-}
+{-# OPTIONS_GHC -Wno-orphans -Wno-unused-do-bind -Wno-name-shadowing #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -6,19 +6,19 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Typechecker.Infer (
+module F0.Typechecker.Infer (
   typecheck, typecheckExpr, 
   TypeEnvironment, emptyEnv, defaultState, 
   TypeError(..), 
   Scheme(..), getSymbolType
   ) where 
 
-import Parser.AST 
-import Parser.ASTUtil 
+import F0.Parser.AST 
+import F0.Parser.ASTUtil 
 
-import Compiler.CompilerError
-import Codegen.Symbolize (Symbol(..))
-import LibraryBindings
+import F0.Compiler.CompilerError
+import F0.Codegen.Symbolize (Symbol(..))
+import F0.LibraryBindings
 
 import Data.Maybe (fromJust, mapMaybe)
 import qualified Data.Set as Set 
@@ -34,7 +34,7 @@ import Control.Monad.State.Strict
 import Control.Monad.Except
 
 import Text.Printf 
-import Display
+import F0.Display
 
 -- Based off of: http://dev.stephendiehl.com/fun/006_hindley_milner.html
 

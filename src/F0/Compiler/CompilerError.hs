@@ -1,4 +1,4 @@
-module Compiler.CompilerError where 
+module F0.Compiler.CompilerError where 
 
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.List.NonEmpty as NonEmpty

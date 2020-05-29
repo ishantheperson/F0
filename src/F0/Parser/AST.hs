@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-orphans -Wno-name-shadowing #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -7,14 +7,14 @@
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Parser.AST where 
+module F0.Parser.AST where 
 
 import Text.Megaparsec.Pos 
 import Text.Printf
 
 import Data.Functor.Foldable.TH
 
-import Display
+import F0.Display
 
 type SourceRange = (SourcePos, SourcePos)
 

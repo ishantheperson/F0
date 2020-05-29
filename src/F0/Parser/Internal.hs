@@ -1,16 +1,16 @@
-{-# OPTIONS_GHC -Wno-orphans -Wno-unused-do-bind #-}
+{-# OPTIONS_GHC -Wno-orphans -Wno-unused-do-bind -Wno-name-shadowing #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Parser.Internal where 
+module F0.Parser.Internal where 
 
 import Data.Void 
 
 import Data.List (partition)
 import Control.Monad (void)
 
-import Parser.AST 
-import Compiler.CompilerError
+import F0.Parser.AST 
+import F0.Compiler.CompilerError
 
 import Text.Megaparsec 
 import Text.Megaparsec.Char

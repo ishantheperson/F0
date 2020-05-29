@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 97414a312b9f76d86b6fa3b7612cf8f774a7a594066b1966d4c2a6a08597be4d
+-- hash: f92311cc2cc534f29c3665c4597909dbc6157ac4fb663cd4d4d03a5f0b9a7db9
 
 name:           f0
 version:        0.1.0.0
@@ -27,18 +27,18 @@ source-repository head
 
 library
   exposed-modules:
-      Codegen.Closure
-      Codegen.PrintC0
-      Codegen.Symbolize
-      Compiler.Compile
-      Compiler.CompilerError
-      Compiler.CompilerM
-      Display
-      LibraryBindings
-      Parser.AST
-      Parser.ASTUtil
-      Parser.Internal
-      Typechecker.Infer
+      F0.Codegen.Closure
+      F0.Codegen.PrintC0
+      F0.Codegen.Symbolize
+      F0.Compiler.Compile
+      F0.Compiler.CompilerError
+      F0.Compiler.CompilerM
+      F0.Display
+      F0.LibraryBindings
+      F0.Parser.AST
+      F0.Parser.ASTUtil
+      F0.Parser.Internal
+      F0.Typechecker.Infer
   other-modules:
       Paths_f0
   hs-source-dirs:

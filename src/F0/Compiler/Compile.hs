@@ -1,23 +1,23 @@
 {-# LANGUAGE RecordWildCards #-}
-module Compiler.Compile (
-  module Compiler.CompilerM,
-  module Compiler.CompilerError,
+module F0.Compiler.Compile (
+  module F0.Compiler.CompilerM,
+  module F0.Compiler.CompilerError,
 
   CompilerOutput(..),
   compile,
 ) where 
 
-import Parser.AST
+import F0.Parser.AST
 
-import Compiler.CompilerM
-import Compiler.CompilerError
+import F0.Compiler.CompilerM
+import F0.Compiler.CompilerError
 
 import Text.Megaparsec
-import Parser.Internal 
-import Typechecker.Infer
-import Codegen.Symbolize 
-import Codegen.Closure
-import Codegen.PrintC0 
+import F0.Parser.Internal 
+import F0.Typechecker.Infer
+import F0.Codegen.Symbolize 
+import F0.Codegen.Closure
+import F0.Codegen.PrintC0 
 
 import Data.Functor
 import Data.Functor.Identity
@@ -29,15 +29,19 @@ data CompilerOutput = CompilerOutput
     typeEnv :: TypeEnvironment,
     transformedAST :: (C0Expression, C0CodegenState)
   }
-  deriving Show
 
 -- | Compile @text@ from file @fileName@, keeping all data generated
 compile :: FilePath -> String -> Either PackedCompilerError CompilerOutput
-compile fileName text = runCompilerM $ do 
+compile fileName text = do 
+  -- Parser
   parsedWithMain <- liftCompiler $ runParser (sc *> f0Decls <* eof) fileName text <&> (++[dummyMain])
+  -- Renaming
   symbolized <- liftCompiler $ symbolize parsedWithMain 
+  -- Typechecking
   (typeEnv, typedAST) <- liftCompiler $ typecheck emptyEnv defaultState symbolized 
+  -- Convert to a form where everything is explicit
   let transformedAST = runCodegen . codegenExpr [] . programToExpression $ typedAST 
+  -- Generate C1 source text
   let c1source = outputProgram transformedAST
   return $ CompilerOutput{..} 
 

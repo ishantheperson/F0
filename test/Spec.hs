@@ -7,17 +7,17 @@ import System.Directory
 import System.Process 
 import System.FilePath.Posix
 
-import Parser.AST 
-import Parser.ASTUtil
-import Parser.Internal 
+import F0.Parser.AST 
+import F0.Parser.ASTUtil
+import F0.Parser.Internal 
 
-import Codegen.Symbolize
-import Codegen.Closure
-import Codegen.PrintC0
+import F0.Codegen.Symbolize
+import F0.Codegen.Closure
+import F0.Codegen.PrintC0
 
-import Compiler.Compile 
+import F0.Compiler.Compile 
 
-import Typechecker.Infer
+import F0.Typechecker.Infer
 
 import Text.Megaparsec
 
@@ -27,7 +27,7 @@ import Data.Either (isLeft, fromRight)
 import qualified Data.Map.Strict as Map 
 import qualified Data.Set as Set 
 
-import Display
+import F0.Display
 
 tryParse p s = removePositionInfo <$> runParser p "" s
 

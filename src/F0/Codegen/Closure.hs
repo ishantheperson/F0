@@ -8,12 +8,12 @@
   moved to the main() function and are now closures
   which may capture the earlier decls 
 -}
-module Codegen.Closure where 
+module F0.Codegen.Closure where 
 
-import Codegen.Symbolize
+import F0.Codegen.Symbolize
 
-import Parser.AST 
-import Parser.ASTUtil 
+import F0.Parser.AST 
+import F0.Parser.ASTUtil 
 
 import Data.Maybe (fromMaybe)
 
@@ -21,7 +21,7 @@ import qualified Data.Set as Set
 import Data.Map (Map)
 import qualified Data.Map.Lazy as Map
 
-import Control.Monad.State.Lazy 
+import Control.Monad.State.Lazy hiding (state)
 
 -- Using F0PrimitiveType instead 
 -- data C0Type = ..
@@ -83,10 +83,10 @@ runCodegen :: State C0CodegenState a -> (a, C0CodegenState)
 runCodegen = flip runState initialCodegenState
 
 addFunction :: Codegen m => C0Expression -> m Int 
-addFunction exp = do 
+addFunction expr = do 
   state <- get 
   let i = length (functionPool state) 
-  put $ state { functionPool = functionPool state ++ [C0Function Nothing exp] }
+  put $ state { functionPool = functionPool state ++ [C0Function Nothing expr] }
   return i 
 
 addLabelTag :: Codegen m => Symbol -> Int -> m () 
