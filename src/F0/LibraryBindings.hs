@@ -21,10 +21,11 @@ libraryBindings = Map.fromList
     ("println", C0LibraryBinding "println" $ f0StringT `F0Function` f0UnitT),
     ("print", C0LibraryBinding "print" $ f0StringT `F0Function` f0UnitT),
     ("printint", C0LibraryBinding "printint" $ f0IntT `F0Function` f0UnitT),
-
+    ("printchar", C0LibraryBinding "printchar" $ f0CharT `F0Function` f0UnitT),
 
     ("string_join", C0LibraryBinding "string_join" $ F0TupleType [f0StringT, f0StringT] `F0Function` f0StringT),
     ("string_fromint", C0LibraryBinding "string_fromint" $ f0IntT `F0Function` f0StringT),
+    ("string_fromchar", C0LibraryBinding "string_fromchar" $ f0CharT `F0Function` f0StringT),
     ("string_length", C0LibraryBinding "string_length" $ f0StringT `F0Function` f0IntT),
 
     ("error", C0LibraryBinding "error" $ f0StringT `F0Function` f0UnitT),

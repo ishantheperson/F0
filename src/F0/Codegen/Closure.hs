@@ -58,6 +58,7 @@ type C0Environment = [(Symbol, C0VariableReference)]
 data C0Literal = 
     C0IntLiteral Integer 
   | C0StringLiteral String 
+  | C0CharLiteral Char 
   | C0BoolLiteral Bool 
   deriving (Show, Eq)
 
@@ -106,6 +107,7 @@ codegenExpr env = \case
   F0Literal l -> return $ case l of 
     F0IntLiteral i -> C0Box F0IntType (C0Literal $ C0IntLiteral i)
     F0StringLiteral s -> C0Box F0StringType (C0Literal $ C0StringLiteral s)
+    F0CharLiteral c -> C0Box F0CharType (C0Literal $ C0CharLiteral c)
     F0BoolLiteral b -> C0Box F0BoolType (C0Literal $ C0BoolLiteral b)
     F0UnitLiteral -> C0Box F0IntType (C0Literal $ C0IntLiteral 0)
 

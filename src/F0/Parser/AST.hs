@@ -101,6 +101,7 @@ data F0Literal =
     F0IntLiteral Integer 
   | F0StringLiteral String 
   | F0BoolLiteral Bool 
+  | F0CharLiteral Char 
   | F0UnitLiteral 
   deriving (Show, Eq)
 
@@ -138,6 +139,7 @@ data F0PrimitiveType =
     F0IntType 
   | F0StringType 
   | F0BoolType
+  | F0CharType
   | F0UnitType
   deriving (Show, Eq)
 
@@ -145,10 +147,11 @@ data F0PrimitiveType =
 f0Int :: Integer -> F0Expression a b 
 f0Int = F0Literal . F0IntLiteral 
 
-f0IntT, f0StringT, f0BoolT, f0UnitT :: F0Type 
+f0IntT, f0StringT, f0BoolT, f0CharT, f0UnitT :: F0Type 
 f0IntT = F0PrimitiveType F0IntType
 f0StringT = F0PrimitiveType F0StringType
 f0BoolT = F0PrimitiveType F0BoolType
+f0CharT = F0PrimitiveType F0CharType
 f0UnitT = F0PrimitiveType F0UnitType
 
 operatorAsFunctionType :: F0Operator -> F0Type 
@@ -199,6 +202,7 @@ literalType :: F0Literal -> F0Type
 literalType = \case
   F0IntLiteral _ -> f0IntT
   F0StringLiteral _ -> f0StringT
+  F0CharLiteral _ -> f0CharT
   F0BoolLiteral _ -> f0BoolT
   F0UnitLiteral -> f0UnitT
 

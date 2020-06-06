@@ -61,7 +61,7 @@ generalDecls = unlines
   ]
 
 boxingHelpers :: String
-boxingHelpers = unlines $ mkBoxingHelpers =<< [F0IntType, F0StringType, F0BoolType]
+boxingHelpers = unlines (mkBoxingHelpers =<< [F0IntType, F0StringType, F0BoolType, F0CharType])
   where mkBoxingHelpers :: F0PrimitiveType -> [String] 
         mkBoxingHelpers (printPrimitiveTypeC0 -> t) = 
           [ printf "void* f0_box_%s(%s x) { %s* p = alloc(%s); *p = x; return (void*)p; }" t t t t 
@@ -291,6 +291,7 @@ outputExpr = \case
     let (t, x) = case l of 
                    C0IntLiteral i -> (F0IntType, show i)
                    C0StringLiteral s -> (F0StringType, show s)
+                   C0CharLiteral c -> (F0CharType, show c)
                    C0BoolLiteral True -> (F0BoolType, "true")
                    C0BoolLiteral False -> (F0BoolType, "false")
 

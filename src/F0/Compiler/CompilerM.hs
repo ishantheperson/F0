@@ -8,8 +8,6 @@ module F0.Compiler.CompilerM
 import F0.Compiler.CompilerError
 import F0.Display
 
-import Data.Either (either)
-
 data PackedCompilerError = forall e. CompilerError e => PackedCompilerError e
 
 instance Display PackedCompilerError where 

@@ -127,6 +127,7 @@ printPrimitiveType = \case
   F0IntType -> "int"
   F0StringType -> "string"
   F0BoolType -> "bool"
+  F0CharType -> "char"
   F0UnitType -> "unit"
 
 -- | This version maps unit as a C0 type

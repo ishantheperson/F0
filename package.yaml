@@ -37,6 +37,8 @@ dependencies:
 library:
   source-dirs: src
 
+ghc-options: ["-optP-Wno-nonportable-include-path"]
+
 executables:
   f0:
     main:                Main.hs

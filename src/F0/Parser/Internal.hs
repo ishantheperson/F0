@@ -140,6 +140,7 @@ f0Expression = positioned (makeExprParser (term >>= postfix) operators) <?> "exp
                     <*> (reserved "else" *> f0Expression)
         f0IntLiteral = F0Literal . F0IntLiteral <$> integer 
         f0StringLiteral = F0Literal . F0StringLiteral <$> stringLiteral
+        f0CharLiteral = F0Literal . F0CharLiteral <$> (char '#' *> charLiteral)
         f0BoolLiteral = F0Literal . F0BoolLiteral <$> ((True <$ reserved "true") <|> (False <$ reserved "false")) 
         f0UnitLiteral = F0Literal F0UnitLiteral <$ symbol "()"
 
@@ -181,7 +182,7 @@ f0Expression = positioned (makeExprParser (term >>= postfix) operators) <?> "exp
 
         term = positioned $ 
           choice [f0Let, f0Lambda, f0If, f0Case,
-                  f0UnitLiteral, f0IntLiteral, f0StringLiteral, f0BoolLiteral, 
+                  f0UnitLiteral, f0IntLiteral, f0CharLiteral, f0StringLiteral, f0BoolLiteral, 
                   f0Ident, f0Tuple]
         postfix e = 
               positioned (functionApp e) <|> return e 
