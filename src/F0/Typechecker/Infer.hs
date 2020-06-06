@@ -223,11 +223,13 @@ infer range e = case e of
   F0TagValue{} -> error "infer: F0TagValue should not be part of type inference"
   F0Case obj rules -> do 
     -- Check all labels are from the same type
-    let actualLabels = Set.fromList $ fst <$> rules 
     (tycon, labelsWithTypes) <- getConstructors range (fst $ head rules)
+    let actualLabels = Set.fromList $ fst <$> rules 
     let realLabels = Set.fromList $ fst <$> labelsWithTypes
 
-    unless (actualLabels `Set.isSubsetOf` realLabels) $ throwError (TypeError (range, ConstructorsDontMatch))
+    unless (actualLabels `Set.isSubsetOf` realLabels) $ 
+      throwError (TypeError (range, ConstructorsDontMatch))
+
     let Forall tvs _ = snd . head $ labelsWithTypes -- Datatypes cannot be empty so this is safe 
     -- All branches of the case need to have their tvs instantiated to the same thing
     names <- mapM (const $ F0TypeVariable <$> freshName) tvs 
@@ -245,11 +247,11 @@ infer range e = case e of
         branchInfo :: [(Scheme, (Symbol, F0Expression Symbol Maybe))]
         branchInfo = flip map rules $ \(sym, branch) -> (fromJust $ lookup sym schemes, branch)
 
+    -- Generate new case arms, the type of each branch, and the set of constraints c
     (unzip -> (arms, unzip -> (armTys, concat -> c))) <- 
       mapM (\(t, (x, e)) -> local (extendEnv x t) $ infer range e) branchInfo 
 
     (obj, (objt, objc)) <- infer range obj 
-    -- obj : F0TypeCons (F0TypeTuple names) tycon
     -- Unify all the types in branches 
     
     let armTyConstraints = zipWith (range,,) armTys (drop 1 armTys)
