@@ -8,6 +8,7 @@ import Data.Void
 
 import Data.List (partition)
 import Control.Monad (void)
+import Control.Arrow 
 
 import F0.Parser.AST 
 import F0.Compiler.CompilerError
@@ -93,14 +94,13 @@ f0Decl = positioned (fun <|> val <|> datatype)
                   (_, Discard) -> "_discard"
                   (i, Tuple _) -> "_tuple" ++ show i 
 
-                -- TODO: use arrows here lmao 
-                functionArgs = map (\a -> (transformArg a, Nothing)) args  
+                functionArgs :: [(String, Maybe a)]
+                functionArgs = map (transformArg &&& const Nothing) args
 
             return [F0Fun name functionArgs Nothing newFunctionBody]
 
           contract :: Parser (ContractType, F0Expression String Maybe)
-          contract = (symbol "(*@" *> (
-                                       (,) <$> ((Requires <$ reserved "requires") <|> (Ensures <$ reserved "ensures"))
+          contract = (symbol "(*@" *> ((,) <$> ((Requires <$ reserved "requires") <|> (Ensures <$ reserved "ensures"))
                                            <*> f0Expression 
                                       ) <* symbol "@*)") <?> "contract"
 
