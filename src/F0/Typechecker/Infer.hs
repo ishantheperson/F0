@@ -89,7 +89,7 @@ printTypeError :: TypeErrorData -> String
 printTypeError (Mismatch a b) =
     printf "couldn't match types: %s ~ %s" (display a) (display b)
 printTypeError (InfiniteType a b) = 
-    printf "found infinite type when trying to solve: %s ~ %s" a (display b)
+    printf "found infinite type when trying to solve: %s ~ %s" a (printType' b)
 printTypeError ConstructorsDontMatch = 
     "constructors aren't all from the same datatype"
 printTypeError (ConstructorNotFound x) = 
@@ -150,7 +150,7 @@ instance TypeSubstitutable TypeEnvironment where
   subst s (TypeEnvironment env) = TypeEnvironment $ Map.map (subst s) env 
   freeTypeVariables (TypeEnvironment env) = freeTypeVariables (Map.elems env)
 
--- Removes quantifiers 
+-- | Removes quantifiers 
 instantiate :: Infer m => Scheme -> m F0Type 
 instantiate (Forall vars t) = do
   names <-  mapM (const $ F0TypeVariable <$> freshName) vars 

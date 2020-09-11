@@ -85,7 +85,6 @@ main = do
     [
       if optimize then ["-c", "-O2"] else [],
       ["-r", "unsafe"], -- not checking tags could give a big boost to performance/memory usage
-      ["-c", "-ftrapv"], -- gcc/clang extension to abort on div by zero. 
       ["-o", basename], -- a.out is such an ugly name
       extraCC0Opts, -- user provided options
       [outputFileName]

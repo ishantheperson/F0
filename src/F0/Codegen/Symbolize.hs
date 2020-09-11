@@ -68,7 +68,7 @@ instance Display SymbolError where
     return $ unlines [rangeTxt, printSymbolErr err]
 
 instance CompilerError SymbolError where 
-  errorStage = const "Symbolization"
+  errorStage = const "symbolizing"
   errorMsg = display
 
 printSymbolErr :: SymbolErrorType -> String
