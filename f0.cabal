@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 44f50dac453f7260020653068df59aa6118fd4f3835b90e2fd2365f70eee4295
+-- hash: ab346666b79c502b17ea5079e1ae0ddf96fdda3788639a3a62181e306f08235c
 
 name:           f0
 version:        0.1.0.0
@@ -34,6 +34,7 @@ library
       F0.Compiler.CompilerError
       F0.Compiler.CompilerM
       F0.Display
+      F0.Interpret
       F0.LibraryBindings
       F0.Parser.AST
       F0.Parser.ASTUtil
@@ -43,12 +44,13 @@ library
       Paths_f0
   hs-source-dirs:
       src
-  ghc-options: -optP-Wno-nonportable-include-path
+  ghc-options: -optP-Wno-nonportable-include-path -W
   build-depends:
       base >=4.7 && <5
     , containers
     , directory
     , filepath
+    , haskeline
     , hscolour
     , hspec
     , megaparsec
@@ -58,21 +60,24 @@ library
     , pretty-show
     , process
     , recursion-schemes
+    , vector
   default-language: Haskell2010
 
 executable f0
   main-is: Main.hs
   other-modules:
+      Repl
       Paths_f0
   hs-source-dirs:
       app
-  ghc-options: -optP-Wno-nonportable-include-path
+  ghc-options: -optP-Wno-nonportable-include-path -W
   build-depends:
       base >=4.7 && <5
     , containers
     , directory
     , f0
     , filepath
+    , haskeline
     , hscolour
     , hspec
     , megaparsec
@@ -82,6 +87,7 @@ executable f0
     , pretty-show
     , process
     , recursion-schemes
+    , vector
   default-language: Haskell2010
 
 test-suite f0-test
@@ -91,13 +97,14 @@ test-suite f0-test
       Paths_f0
   hs-source-dirs:
       test
-  ghc-options: -optP-Wno-nonportable-include-path
+  ghc-options: -optP-Wno-nonportable-include-path -W
   build-depends:
       base >=4.7 && <5
     , containers
     , directory
     , f0
     , filepath
+    , haskeline
     , hscolour
     , hspec
     , megaparsec
@@ -107,4 +114,5 @@ test-suite f0-test
     , pretty-show
     , process
     , recursion-schemes
+    , vector
   default-language: Haskell2010

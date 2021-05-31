@@ -22,9 +22,12 @@ import Language.Haskell.HsColour.Colourise
 
 import F0.Parser.ASTUtil (removePositionInfo)
 import F0.Compiler.Compile
+import F0.Codegen.Closure
+import F0.Interpret
 
-data CompilerOptions = CompilerOptions 
-  {
+import Repl 
+
+data CompilerOptions = CompilerOptions {
     printAst :: Bool,
     printTypes :: Bool,
     printTransformed :: Bool,
@@ -32,8 +35,9 @@ data CompilerOptions = CompilerOptions
     executeProgram :: Bool,
     onlyTypecheck :: Bool,
     keepC1 :: Bool,
+    interpretCode :: Bool,
     extraCC0Opts :: [String],
-    inputFile :: FilePath
+    inputFile :: Maybe FilePath
   }
 
 compilerOptions :: Opts.Parser CompilerOptions
@@ -45,8 +49,9 @@ compilerOptions = do
   executeProgram   <- Opts.switch (Opts.long "execute" <> Opts.short 'x' <> Opts.help "execute the program if it compiles")
   onlyTypecheck    <- Opts.switch (Opts.long "only-typecheck" <> Opts.short 't' <> Opts.help "don't create an executable. implies --print-types")
   keepC1           <- Opts.switch (Opts.long "save-files" <> Opts.short 's' <> Opts.help "save the generated C1 code")
+  interpretCode    <- Opts.switch (Opts.long "interpret" <> Opts.short 'i' <> Opts.help "use F0's interpreter instead of generating C1 code")
   extraCC0Opts     <- Opts.many   (Opts.strOption (Opts.short 'c' <> Opts.metavar "<arg>" <> Opts.help "pass an option to CC0"))
-  inputFile        <- Opts.argument Opts.str (Opts.metavar "<input file>")
+  inputFile        <- Opts.optional (Opts.argument Opts.str (Opts.metavar "<input file>"))
   return $ CompilerOptions{..}
 
 options :: Opts.ParserInfo CompilerOptions
@@ -55,6 +60,12 @@ options = Opts.info (Opts.helper <*> compilerOptions) Opts.fullDesc
 main :: IO ()
 main = do 
   CompilerOptions{..} <- Opts.execParser options 
+  inputFile <- case inputFile of
+    Just file -> return file  
+    Nothing -> do 
+      repl
+      exitSuccess 
+
   text <- readFile inputFile
   
   -- Allow usage of a different version of cc0 not on path
@@ -71,6 +82,10 @@ main = do
   
   -- Stop before generating an output file if requested
   when onlyTypecheck exitSuccess
+
+  when interpretCode $ do 
+    
+    exitSuccess 
 
   -- Write output file 
   let basename = dropExtension inputFile

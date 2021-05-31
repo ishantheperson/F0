@@ -8,7 +8,17 @@
   moved to the main() function and are now closures
   which may capture the earlier decls 
 -}
-module F0.Codegen.Closure where 
+module F0.Codegen.Closure (
+  runCodegen,
+  codegenExpr,
+  programToExpression,
+  C0VariableReference(..),
+  C0Expression(..),
+  C0Environment,
+  C0Literal(..),
+  C0Function(..),
+  C0CodegenState(..)
+) where 
 
 import F0.Codegen.Symbolize
 

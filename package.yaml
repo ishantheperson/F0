@@ -21,30 +21,30 @@ description:         Please see the README on GitHub at <https://github.com/isha
 
 dependencies:
 - base >= 4.7 && < 5
-- mtl 
-- containers
-- megaparsec
-- parser-combinators
-- pretty-show
-- hspec
-- optparse-applicative
 - filepath
 - process
 - directory
+- containers
+- vector
+- mtl 
+- pretty-show
+- parser-combinators
 - hscolour
+- optparse-applicative
+- haskeline
+- megaparsec
 - recursion-schemes
+- hspec
 
 library:
   source-dirs: src
 
-ghc-options: ["-optP-Wno-nonportable-include-path"]
+ghc-options: ["-optP-Wno-nonportable-include-path", "-W"]
 
 executables:
   f0:
     main:                Main.hs
     source-dirs:         app
-    # No multithreading for our app 
-    #ghc-options:
     dependencies:
     - f0
 
